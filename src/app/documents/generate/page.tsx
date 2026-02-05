@@ -28,12 +28,28 @@ interface ControlPlan {
   created_at: string;
 }
 
+interface SopHeader {
+  id: string;
+  process_name: string;
+  revision: number;
+  status: string;
+}
+
+interface InspectionStandard {
+  id: string;
+  inspection_type: string;
+  revision: number;
+  status: string;
+}
+
 export default function GenerateDocumentsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [pfmea, setPfmea] = useState<PfmeaHeader | null>(null);
   const [controlPlans, setControlPlans] = useState<ControlPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [sop, setSop] = useState<SopHeader | null>(null);
+  const [inspection, setInspection] = useState<InspectionStandard | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>('');
@@ -53,6 +69,8 @@ export default function GenerateDocumentsPage() {
       setPfmea(null);
       setControlPlans([]);
       setSelectedPlan('');
+      setSop(null);
+      setInspection(null);
     }
   }, [selectedProduct]);
 
@@ -94,13 +112,43 @@ export default function GenerateDocumentsPage() {
       if (cpData && cpData.length > 0) {
         setControlPlans(cpData);
         setSelectedPlan(cpData[0].id);
+
+        // Fetch SOP
+        const { data: sopData } = await supabase
+          .from('sop_headers')
+          .select('*')
+          .eq('control_plan_id', cpData[0].id)
+          .order('revision', { ascending: false })
+          .limit(1)
+          .single();
+
+        setSop(sopData || null);
+
+        // Fetch Inspection Standard
+        if (sopData) {
+          const { data: inspData } = await supabase
+            .from('inspection_standards')
+            .select('*')
+            .eq('sop_id', sopData.id)
+            .order('revision', { ascending: false })
+            .limit(1)
+            .single();
+
+          setInspection(inspData || null);
+        } else {
+          setInspection(null);
+        }
       } else {
         setControlPlans([]);
         setSelectedPlan('');
+        setSop(null);
+        setInspection(null);
       }
     } else {
       setControlPlans([]);
       setSelectedPlan('');
+      setSop(null);
+      setInspection(null);
     }
   }
 
@@ -203,6 +251,7 @@ export default function GenerateDocumentsPage() {
           type: 'success',
           message: `SOP ${data.steps_count || 0}개 항목이 생성되었습니다.`,
         });
+        await fetchPfmeaAndControlPlan(selectedProduct);
       } else {
         setResult({
           type: 'error',
@@ -241,6 +290,7 @@ export default function GenerateDocumentsPage() {
           type: 'success',
           message: `검사기준서 ${data.items_count || data.generated_count || 0}개 항목이 생성되었습니다.`,
         });
+        await fetchPfmeaAndControlPlan(selectedProduct);
       } else {
         setResult({
           type: 'error',
@@ -457,9 +507,17 @@ export default function GenerateDocumentsPage() {
                 <div>
                   <h3 className="font-medium text-gray-800">PFMEA (잠재고장모드분석)</h3>
                   {pfmea ? (
-                    <p className="text-sm text-green-600">
-                      ✅ 생성됨 - {pfmea.process_name} (Rev.{pfmea.revision})
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm text-green-600">
+                        ✅ 생성됨 - {pfmea.process_name} (Rev.{pfmea.revision})
+                      </p>
+                      <Link
+                        href={`/documents/pfmea/${pfmea.id}`}
+                        className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                      >
+                        📄 열람
+                      </Link>
+                    </div>
                   ) : (
                     <p className="text-sm text-gray-500">미생성</p>
                   )}
@@ -480,9 +538,17 @@ export default function GenerateDocumentsPage() {
                 <div>
                   <h3 className="font-medium text-gray-800">Control Plan (관리계획서)</h3>
                   {controlPlans.length > 0 ? (
-                    <p className="text-sm text-green-600">
-                      ✅ 생성됨 - {controlPlans[0].name}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm text-green-600">
+                        ✅ 생성됨 - {controlPlans[0].name}
+                      </p>
+                      <Link
+                        href={`/documents/control-plan/${controlPlans[0].id}`}
+                        className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                      >
+                        📄 열람
+                      </Link>
+                    </div>
                   ) : (
                     <p className="text-sm text-gray-500">{pfmea ? '미생성' : 'PFMEA 먼저 필요'}</p>
                   )}
@@ -502,16 +568,30 @@ export default function GenerateDocumentsPage() {
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="font-medium text-gray-800">SOP (표준작업절차서)</h3>
-                  <p className="text-sm text-gray-500">
-                    {controlPlans.length > 0 ? 'Control Plan 기반 생성 가능' : 'Control Plan 먼저 필요'}
-                  </p>
+                  {sop ? (
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm text-green-600">
+                        ✅ 생성됨 - {sop.process_name} (Rev.{sop.revision})
+                      </p>
+                      <Link
+                        href={`/documents/sop/${sop.id}`}
+                        className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                      >
+                        📄 열람
+                      </Link>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      {controlPlans.length > 0 ? '미생성 - Control Plan 기반 생성 가능' : 'Control Plan 먼저 필요'}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={generateSOP}
                   disabled={!selectedPlan || generating}
                   className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-400"
                 >
-                  SOP 생성
+                  {sop ? 'SOP 재생성' : 'SOP 생성'}
                 </button>
               </div>
             </div>
@@ -521,16 +601,30 @@ export default function GenerateDocumentsPage() {
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="font-medium text-gray-800">검사기준서</h3>
-                  <p className="text-sm text-gray-500">
-                    {controlPlans.length > 0 ? 'Control Plan 기반 생성 가능' : 'Control Plan 먼저 필요'}
-                  </p>
+                  {inspection ? (
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm text-green-600">
+                        ✅ 생성됨 - {inspection.inspection_type === 'in_process' ? '공정검사' : inspection.inspection_type} (Rev.{inspection.revision})
+                      </p>
+                      <Link
+                        href={`/documents/inspection/${inspection.id}`}
+                        className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                      >
+                        📄 열람
+                      </Link>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      {controlPlans.length > 0 ? '미생성 - Control Plan 기반 생성 가능' : 'Control Plan 먼저 필요'}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={generateInspection}
                   disabled={!selectedPlan || generating}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400"
                 >
-                  검사기준서 생성
+                  {inspection ? '검사기준서 재생성' : '검사기준서 생성'}
                 </button>
               </div>
             </div>
