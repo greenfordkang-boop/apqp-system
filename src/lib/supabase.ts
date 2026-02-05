@@ -1,20 +1,50 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+// Create client only if environment variables are available
+// This prevents build-time errors while still ensuring runtime safety
+let supabaseInstance: SupabaseClient | null = null;
+
+function getSupabaseClient(): SupabaseClient {
+  if (!supabaseInstance) {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+  }
+  return supabaseInstance;
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Export a proxy that lazily initializes the client
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    const client = getSupabaseClient();
+    const value = client[prop as keyof SupabaseClient];
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    return value;
+  }
+});
 
 // Server-side client with service role (for API routes)
-export function createServerClient() {
+export function createServerClient(): SupabaseClient {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    // Fallback to anon key if service role not available
-    return supabase;
+
+  if (!supabaseUrl) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
   }
-  return createClient(supabaseUrl, serviceRoleKey);
+
+  if (serviceRoleKey) {
+    return createClient(supabaseUrl, serviceRoleKey);
+  }
+
+  // Fallback to anon key if service role not available
+  if (!supabaseAnonKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey);
 }
