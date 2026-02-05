@@ -213,8 +213,7 @@ export async function POST(request: NextRequest) {
       const fallback = generateFallbackSopStep({
         ...cpItem,
         characteristic,
-      } as ControlPlanItem & { characteristic: Characteristic });
-
+} as unknown as ControlPlanItem & { characteristic: Characteristic });
       const llmResult = await callLLMWithJSON<LLMSopStepOutput>(
         messages,
         { action: '', key_point: '', safety_note: '', estimated_time_sec: 0 },
