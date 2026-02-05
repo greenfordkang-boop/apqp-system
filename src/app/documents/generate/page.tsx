@@ -201,12 +201,12 @@ export default function GenerateDocumentsPage() {
       if (data.success) {
         setResult({
           type: 'success',
-          message: `SOP ${data.steps_count}개 항목이 생성되었습니다.`,
+          message: `SOP ${data.steps_count || 0}개 항목이 생성되었습니다.`,
         });
       } else {
         setResult({
           type: 'error',
-          message: data.error || 'SOP 생성 실패',
+          message: `SOP 생성 실패: ${data.error || '알 수 없는 오류'}`,
         });
       }
     } catch (error) {
@@ -244,13 +244,13 @@ export default function GenerateDocumentsPage() {
       } else {
         setResult({
           type: 'error',
-          message: data.error || '검사기준서 생성 실패',
+          message: `검사기준서 생성 실패: ${data.error || '알 수 없는 오류'}`,
         });
       }
     } catch (error) {
       setResult({
         type: 'error',
-        message: '서버 오류가 발생했습니다.',
+        message: `서버 오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
       });
     } finally {
       setGenerating(false);
