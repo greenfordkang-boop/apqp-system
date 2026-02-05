@@ -24,7 +24,7 @@ export default function NewProductPage() {
   const [productName, setProductName] = useState('');
   const [productCode, setProductCode] = useState('');
   const [customer, setCustomer] = useState('');
-  const [modelYear, setModelYear] = useState('');
+  const [description, setDescription] = useState('');
 
   const [characteristics, setCharacteristics] = useState<CharacteristicInput[]>([
     { name: '', type: 'dimension', nominal: '', usl: '', lsl: '', unit: 'mm', is_critical: false }
@@ -60,8 +60,9 @@ export default function NewProductPage() {
         .insert({
           name: productName,
           code: productCode,
-          customer: customer,
-          model_year: modelYear
+          customer: customer || null,
+          description: description || null,
+          status: 'active'
         })
         .select()
         .single();
@@ -175,14 +176,14 @@ export default function NewProductPage() {
                   placeholder="예: 현대자동차"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">모델연도</label>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">설명</label>
                 <input
                   type="text"
-                  value={modelYear}
-                  onChange={(e) => setModelYear(e.target.value)}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-                  placeholder="예: 2024"
+                  placeholder="예: 현대 아반떼 CN7 2024년형 부품"
                 />
               </div>
             </div>
