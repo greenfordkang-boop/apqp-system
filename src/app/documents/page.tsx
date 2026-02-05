@@ -112,6 +112,7 @@ export default function DocumentsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Tabs */}
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => setActiveTab('sop')}
@@ -121,7 +122,7 @@ export default function DocumentsPage() {
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            SOP (표준작업절차서)
+            📝 SOP (표준작업절차서)
           </button>
           <button
             onClick={() => setActiveTab('inspection')}
@@ -131,11 +132,12 @@ export default function DocumentsPage() {
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
-            검사기준서
+            ✅ 검사기준서
           </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Document List */}
           <div>
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               {activeTab === 'sop' ? 'SOP 목록' : '검사기준서 목록'}
@@ -212,6 +214,7 @@ export default function DocumentsPage() {
             )}
           </div>
 
+          {/* Document Detail */}
           <div>
             <h2 className="text-lg font-semibold text-gray-800 mb-4">문서 상세</h2>
 
@@ -268,7 +271,7 @@ function SopDetail({ step }: { step: SopStep }) {
 
       {step.safety_notes && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-          <h4 className="font-semibold text-yellow-800 mb-1">안전 주의사항</h4>
+          <h4 className="font-semibold text-yellow-800 mb-1">⚠️ 안전 주의사항</h4>
           <p className="text-yellow-700">{step.safety_notes}</p>
         </div>
       )}
@@ -321,7 +324,7 @@ function InspectionDetail({ item }: { item: InspectionItem }) {
       </div>
 
       <div className="bg-green-50 border-l-4 border-green-400 p-4">
-        <h4 className="font-semibold text-green-800 mb-1">합격 기준</h4>
+        <h4 className="font-semibold text-green-800 mb-1">✅ 합격 기준</h4>
         <p className="text-green-700">{item.acceptance_criteria}</p>
       </div>
 

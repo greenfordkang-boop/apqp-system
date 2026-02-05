@@ -125,13 +125,13 @@ export default function NewProductPage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         {success && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
-            제품이 성공적으로 등록되었습니다! 잠시 후 목록으로 이동합니다...
+            ✅ 제품이 성공적으로 등록되었습니다! 잠시 후 목록으로 이동합니다...
           </div>
         )}
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            오류: {error}
+            ❌ 오류: {error}
           </div>
         )}
 
@@ -201,7 +201,7 @@ export default function NewProductPage() {
             </div>
 
             <p className="text-sm text-gray-500 mb-4">
-              특성은 Single Source of Truth로, 모든 문서의 기준이 됩니다.
+              특성은 Single Source of Truth로, 모든 문서(PFMEA, Control Plan, SOP, 검사기준서)의 기준이 됩니다.
             </p>
 
             {characteristics.map((char, index) => (
@@ -245,7 +245,7 @@ export default function NewProductPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">기준값</label>
+                    <label className="block text-sm text-gray-600 mb-1">기준값 (Nominal)</label>
                     <input
                       type="number"
                       step="0.001"
@@ -295,7 +295,7 @@ export default function NewProductPage() {
                         onChange={(e) => updateCharacteristic(index, 'is_critical', e.target.checked)}
                         className="w-4 h-4"
                       />
-                      <span className="text-sm text-gray-600">중요 특성</span>
+                      <span className="text-sm text-gray-600">중요 특성 (Critical)</span>
                     </label>
                   </div>
                 </div>

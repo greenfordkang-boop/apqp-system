@@ -119,6 +119,7 @@ export default function GenerateDocumentsPage() {
     setResult(null);
 
     try {
+      // Generate SOP first
       const sopResponse = await fetch(`/api/generate/sop?control_plan_id=${selectedPlan}`, {
         method: 'POST',
       });
@@ -128,6 +129,7 @@ export default function GenerateDocumentsPage() {
         throw new Error(sopData.error || 'SOP 생성 실패');
       }
 
+      // Then generate Inspection
       const inspResponse = await fetch(`/api/generate/inspection?control_plan_id=${selectedPlan}`, {
         method: 'POST',
       });
@@ -167,6 +169,7 @@ export default function GenerateDocumentsPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* Result Message */}
         {result && (
           <div className={`mb-6 p-4 rounded-lg ${
             result.type === 'success'
@@ -177,6 +180,7 @@ export default function GenerateDocumentsPage() {
           </div>
         )}
 
+        {/* Control Plan Selection */}
         <section className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">1. Control Plan 선택</h2>
 
@@ -223,6 +227,7 @@ export default function GenerateDocumentsPage() {
           )}
         </section>
 
+        {/* Generation Options */}
         <section className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">2. 생성할 문서 선택</h2>
 
@@ -261,8 +266,9 @@ export default function GenerateDocumentsPage() {
           </div>
         </section>
 
+        {/* Generate All */}
         <section className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow p-6 text-white">
-          <h2 className="text-lg font-semibold mb-2">전체 문서 일괄 생성</h2>
+          <h2 className="text-lg font-semibold mb-2">🚀 전체 문서 일괄 생성</h2>
           <p className="text-white/80 mb-4">
             선택한 Control Plan을 기반으로 SOP와 검사기준서를 한 번에 생성합니다.
           </p>
@@ -271,15 +277,16 @@ export default function GenerateDocumentsPage() {
             disabled={!selectedPlan || generating}
             className="w-full py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 disabled:bg-gray-200 disabled:text-gray-500"
           >
-            {generating ? '생성 중...' : '전체 문서 생성'}
+            {generating ? '⏳ 생성 중...' : '⚡ 전체 문서 생성'}
           </button>
         </section>
 
+        {/* Info */}
         <div className="mt-6 p-4 bg-blue-50 rounded-lg text-sm text-blue-800">
-          <p className="font-semibold mb-2">문서 생성 프로세스</p>
+          <p className="font-semibold mb-2">📋 문서 생성 프로세스</p>
           <ol className="list-decimal list-inside space-y-1">
-            <li>Control Plan에서 각 항목을 조회합니다</li>
-            <li>각 항목의 특성 정보를 기반으로 문서를 생성합니다</li>
+            <li>Control Plan에서 각 항목(Control Plan Item)을 조회합니다</li>
+            <li>각 항목의 특성(Characteristic) 정보를 기반으로 문서를 생성합니다</li>
             <li>LLM을 활용하여 상세 내용을 자동 작성합니다</li>
             <li>생성된 문서는 FK로 연결되어 추적 가능합니다</li>
           </ol>
