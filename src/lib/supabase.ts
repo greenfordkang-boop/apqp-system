@@ -10,7 +10,6 @@ function getSupabaseClient(): SupabaseClient {
   if (!supabaseInstance) {
     if (!supabaseUrl || !supabaseAnonKey) {
       console.warn('Missing Supabase environment variables - using placeholder');
-      // Create with placeholder to avoid null type issues - API calls will fail gracefully
       supabaseInstance = createClient('https://placeholder.supabase.co', 'placeholder-key');
     } else {
       supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
@@ -19,7 +18,7 @@ function getSupabaseClient(): SupabaseClient {
   return supabaseInstance;
 }
 
-// Export the client
+// Export the client via Proxy for safe access
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
     const client = getSupabaseClient();
