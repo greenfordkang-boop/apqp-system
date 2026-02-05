@@ -7,12 +7,12 @@ import { supabase } from '@/lib/supabase';
 
 interface CharacteristicInput {
   name: string;
-  type: 'dimension' | 'visual' | 'functional' | 'material';
-  nominal: string;
+  type: 'product' | 'process';
+  category: 'critical' | 'major' | 'minor';
+  specification: string;
   usl: string;
   lsl: string;
   unit: string;
-  is_critical: boolean;
 }
 
 export default function NewProductPage() {
@@ -27,13 +27,13 @@ export default function NewProductPage() {
   const [description, setDescription] = useState('');
 
   const [characteristics, setCharacteristics] = useState<CharacteristicInput[]>([
-    { name: '', type: 'dimension', nominal: '', usl: '', lsl: '', unit: 'mm', is_critical: false }
+    { name: '', type: 'process', category: 'minor', specification: '', usl: '', lsl: '', unit: 'mm' }
   ]);
 
   const addCharacteristic = () => {
     setCharacteristics([
       ...characteristics,
-      { name: '', type: 'dimension', nominal: '', usl: '', lsl: '', unit: 'mm', is_critical: false }
+      { name: '', type: 'process', category: 'minor', specification: '', usl: '', lsl: '', unit: 'mm' }
     ]);
   };
 
@@ -69,28 +69,35 @@ export default function NewProductPage() {
 
       if (productError) throw productError;
 
+      // Create process with unique code based on product code
+      const processCode = `${productCode}-PROC-001`;
       const { data: process, error: processError } = await supabase
         .from('processes')
         .insert({
-          product_id: product.id,
-          name: 'Main Process',
-          sequence: 1
+          code: processCode,
+          name: `${productName} Main Process`,
+          description: `Main manufacturing process for ${productName}`,
+          sequence_no: 1,
+          status: 'active'
         })
         .select()
         .single();
 
       if (processError) throw processError;
 
-      const charData = characteristics.map((char, index) => ({
+      // Create characteristics linked to both product and process
+      const charData = characteristics.map((char) => ({
+        product_id: product.id,
         process_id: process.id,
         name: char.name,
         type: char.type,
-        nominal: parseFloat(char.nominal) || 0,
+        category: char.category,
+        specification: char.specification || null,
         usl: parseFloat(char.usl) || null,
         lsl: parseFloat(char.lsl) || null,
         unit: char.unit,
-        is_critical: char.is_critical,
-        sequence: index + 1
+        measurement_method: null,
+        canonical_name: char.name.toLowerCase().replace(/\s+/g, '_')
       }));
 
       const { error: charError } = await supabase
@@ -239,21 +246,40 @@ export default function NewProductPage() {
                       onChange={(e) => updateCharacteristic(index, 'type', e.target.value)}
                       className="w-full px-3 py-2 border rounded-md text-sm"
                     >
-                      <option value="dimension">치수</option>
-                      <option value="visual">외관</option>
-                      <option value="functional">기능</option>
-                      <option value="material">재질</option>
+                      <option value="process">공정 특성</option>
+                      <option value="product">제품 특성</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">기준값 (Nominal)</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={char.nominal}
-                      onChange={(e) => updateCharacteristic(index, 'nominal', e.target.value)}
+                    <label className="block text-sm text-gray-600 mb-1">중요도</label>
+                    <select
+                      value={char.category}
+                      onChange={(e) => updateCharacteristic(index, 'category', e.target.value)}
                       className="w-full px-3 py-2 border rounded-md text-sm"
-                      placeholder="10.0"
+                    >
+                      <option value="critical">Critical (중요)</option>
+                      <option value="major">Major (주요)</option>
+                      <option value="minor">Minor (일반)</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm text-gray-600 mb-1">규격 (Specification)</label>
+                    <input
+                      type="text"
+                      value={char.specification}
+                      onChange={(e) => updateCharacteristic(index, 'specification', e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md text-sm"
+                      placeholder="예: 10.0 ± 0.5mm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">단위</label>
+                    <input
+                      type="text"
+                      value={char.unit}
+                      onChange={(e) => updateCharacteristic(index, 'unit', e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md text-sm"
+                      placeholder="mm"
                     />
                   </div>
                   <div>
@@ -277,27 +303,6 @@ export default function NewProductPage() {
                       className="w-full px-3 py-2 border rounded-md text-sm"
                       placeholder="9.5"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">단위</label>
-                    <input
-                      type="text"
-                      value={char.unit}
-                      onChange={(e) => updateCharacteristic(index, 'unit', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-md text-sm"
-                      placeholder="mm"
-                    />
-                  </div>
-                  <div className="flex items-center">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={char.is_critical}
-                        onChange={(e) => updateCharacteristic(index, 'is_critical', e.target.checked)}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm text-gray-600">중요 특성 (Critical)</span>
-                    </label>
                   </div>
                 </div>
               </div>
