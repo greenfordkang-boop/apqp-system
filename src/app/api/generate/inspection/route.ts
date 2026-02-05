@@ -227,8 +227,7 @@ export async function POST(request: NextRequest) {
       const fallback = generateFallbackInspectionItem({
         ...cpItem,
         characteristic,
-      } as ControlPlanItem & { characteristic: Characteristic });
-
+} as unknown as ControlPlanItem & { characteristic: Characteristic });
       const llmResult = await callLLMWithJSON<LLMInspectionItemOutput>(
         messages,
         { inspection_item_name: '', inspection_method: '', acceptance_criteria: '', ng_handling: '' },
