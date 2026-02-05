@@ -268,10 +268,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 8. 성공 응답
-    return NextResponse.json<GenerateInspectionResponse>({
+    return NextResponse.json({
       success: true,
       inspection_standard_id: inspectionStandardId,
       items_count: inspectionItems.length,
+      generated_count: inspectionItems.length,  // backward compatibility
       traceability: {
         control_plan_id,
         inspection_standard_id: inspectionStandardId,

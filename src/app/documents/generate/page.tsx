@@ -239,7 +239,7 @@ export default function GenerateDocumentsPage() {
       if (data.success) {
         setResult({
           type: 'success',
-          message: `검사기준서 ${data.generated_count}개 항목이 생성되었습니다.`,
+          message: `검사기준서 ${data.items_count || data.generated_count || 0}개 항목이 생성되었습니다.`,
         });
       } else {
         setResult({
@@ -319,7 +319,7 @@ export default function GenerateDocumentsPage() {
 
       setResult({
         type: 'success',
-        message: `전체 APQP 문서가 생성되었습니다!\n- PFMEA\n- Control Plan\n- SOP: ${sopData.steps_count}개\n- 검사기준서: ${inspData.generated_count}개`,
+        message: `전체 APQP 문서가 생성되었습니다!\n- PFMEA\n- Control Plan\n- SOP: ${sopData.steps_count || 0}개\n- 검사기준서: ${inspData.items_count || inspData.generated_count || 0}개`,
       });
     } catch (error) {
       setResult({
