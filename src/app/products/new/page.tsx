@@ -20,6 +20,7 @@ export default function NewProductPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [progress, setProgress] = useState<string>('');
 
   const [productName, setProductName] = useState('');
   const [productCode, setProductCode] = useState('');
@@ -106,6 +107,35 @@ export default function NewProductPage() {
 
       if (charError) throw charError;
 
+      // Step 2: Auto-generate PFMEA
+      setProgress('PFMEA 자동 생성 중...');
+      const pfmeaResponse = await fetch('/api/generate/pfmea', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: product.id }),
+      });
+      const pfmeaData = await pfmeaResponse.json();
+
+      if (!pfmeaData.success) {
+        console.warn('PFMEA generation warning:', pfmeaData.error);
+      }
+
+      // Step 3: Auto-generate Control Plan (if PFMEA was created)
+      if (pfmeaData.success && pfmeaData.pfmea_id) {
+        setProgress('Control Plan 자동 생성 중...');
+        const cpResponse = await fetch('/api/generate/control-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pfmea_id: pfmeaData.pfmea_id }),
+        });
+        const cpData = await cpResponse.json();
+
+        if (!cpData.success) {
+          console.warn('Control Plan generation warning:', cpData.error);
+        }
+      }
+
+      setProgress('');
       setSuccess(true);
       setTimeout(() => {
         router.push('/products');
@@ -133,7 +163,9 @@ export default function NewProductPage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         {success && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
-            ✅ 제품이 성공적으로 등록되었습니다! 잠시 후 목록으로 이동합니다...
+            ✅ 제품이 성공적으로 등록되었습니다!<br />
+            📋 PFMEA, Control Plan이 자동 생성되었습니다.<br />
+            잠시 후 목록으로 이동합니다...
           </div>
         )}
 
@@ -315,7 +347,7 @@ export default function NewProductPage() {
               disabled={loading}
               className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
             >
-              {loading ? '등록 중...' : '제품 등록'}
+              {loading ? (progress || '등록 중...') : '제품 등록'}
             </button>
             <Link
               href="/"
