@@ -155,10 +155,18 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
       alert('공정명과 잠재고장모드는 필수입니다.');
       return;
     }
+
+    // characteristic_id 결정: 선택된 것 > 첫 번째 특성 > null
+    const charId = newLine.characteristic_id || characteristics[0]?.id || null;
+    if (!charId) {
+      alert('관련 특성을 선택하거나, 제품에 특성을 먼저 등록해 주세요.');
+      return;
+    }
+
     try {
       await pfmeaStore.createLine({
         pfmea_id: pfmeaId,
-        characteristic_id: newLine.characteristic_id || characteristics[0]?.id || '',
+        characteristic_id: charId,
         process_step: newLine.process_step,
         potential_failure_mode: newLine.potential_failure_mode,
         potential_effect: newLine.potential_effect || '',
@@ -175,6 +183,7 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
       await fetchPfmea();
     } catch (err) {
       console.error('Error adding line:', err);
+      alert('항목 추가 실패: ' + (err instanceof Error ? err.message : '알 수 없는 오류'));
     }
   };
 
