@@ -27,6 +27,8 @@ export default function NewProductPage() {
   const [productName, setProductName] = useState('');
   const [productCode, setProductCode] = useState('');
   const [customer, setCustomer] = useState('');
+  const [vehicleModel, setVehicleModel] = useState('');
+  const [partNumber, setPartNumber] = useState('');
   const [description, setDescription] = useState('');
 
   // Step 2: Characteristics
@@ -98,6 +100,8 @@ export default function NewProductPage() {
         name: productName,
         code: productCode,
         customer: customer || '',
+        vehicle_model: vehicleModel || '',
+        part_number: partNumber || '',
         description: description || ''
       });
 
@@ -204,13 +208,37 @@ export default function NewProductPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">고객사</label>
+                  <input
+                    type="text"
+                    value={customer}
+                    onChange={(e) => setCustomer(e.target.value)}
+                    placeholder="예: ABC 자동차"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">차종</label>
+                  <input
+                    type="text"
+                    value={vehicleModel}
+                    onChange={(e) => setVehicleModel(e.target.value)}
+                    placeholder="예: KN4 (셀토스)"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">고객사</label>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">품번</label>
                 <input
                   type="text"
-                  value={customer}
-                  onChange={(e) => setCustomer(e.target.value)}
-                  placeholder="예: ABC 자동차"
+                  value={partNumber}
+                  onChange={(e) => setPartNumber(e.target.value)}
+                  placeholder="예: 12345-AB100"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>

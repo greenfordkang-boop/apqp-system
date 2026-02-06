@@ -10,6 +10,8 @@ export interface Product {
   name: string;
   code: string;
   customer: string;
+  vehicle_model: string;
+  part_number: string;
   description: string;
   status: 'active' | 'inactive';
   created_at: string;
@@ -35,6 +37,8 @@ export interface PfmeaHeader {
   id: string;
   product_id: string;
   process_name: string;
+  doc_number: string;
+  author: string;
   revision: number;
   status: 'draft' | 'review' | 'approved';
   created_at: string;
@@ -65,6 +69,8 @@ export interface ControlPlan {
   pfmea_id: string;
   product_id: string;
   name: string;
+  doc_number: string;
+  author: string;
   revision: number;
   status: 'draft' | 'review' | 'approved';
   created_at: string;
@@ -92,6 +98,8 @@ export interface Sop {
   control_plan_id: string;
   product_id: string;
   name: string;
+  doc_number: string;
+  author: string;
   revision: number;
   status: 'draft' | 'review' | 'approved';
   created_at: string;
@@ -118,6 +126,8 @@ export interface InspectionStandard {
   control_plan_id: string;
   product_id: string;
   name: string;
+  doc_number: string;
+  author: string;
   revision: number;
   status: 'draft' | 'review' | 'approved';
   created_at: string;
@@ -303,6 +313,22 @@ export const pfmeaStore = {
       .single();
     if (error) throw new Error(error.message);
     return data;
+  },
+
+  updateHeader: async (id: string, input: Partial<PfmeaHeader>): Promise<PfmeaHeader | null> => {
+    const { data, error } = await supabase
+      .from('pfmea_headers')
+      .update(input)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) return null;
+    return data;
+  },
+
+  deleteLine: async (id: string): Promise<boolean> => {
+    const { error } = await supabase.from('pfmea_lines').delete().eq('id', id);
+    return !error;
   },
 
   createLine: async (input: Omit<PfmeaLine, 'id' | 'created_at' | 'rpn' | 'action_priority'>): Promise<PfmeaLine> => {
@@ -536,6 +562,119 @@ export const statsStore = {
     };
   },
 };
+
+// ============ AI 문서 생성 (규칙 기반) ============
+
+// ============ 문서번호 자동 생성 ============
+
+export function generateDocNumber(prefix: string, partNumber: string, revision: number): string {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const pn = partNumber || 'NOPN';
+  return `${prefix}-${pn}-${yy}${mm}-R${String(revision).padStart(2, '0')}`;
+}
+
+// ============ AI 검토 (규칙기반 자동 완성) ============
+
+export function aiReviewPfmeaLine(input: {
+  process_step: string;
+  potential_failure_mode: string;
+  potential_effect: string;
+  characteristic_category?: string;
+}): {
+  severity: number;
+  potential_cause: string;
+  occurrence: number;
+  current_control_prevention: string;
+  current_control_detection: string;
+  detection: number;
+  recommended_action: string;
+} {
+  const effect = input.potential_effect;
+  const mode = input.potential_failure_mode;
+  const step = input.process_step;
+  const cat = input.characteristic_category;
+
+  // --- Severity 판정 (잠재영향 + 특성등급 기반) ---
+  let severity = 5;
+  if (/안전|법규|화재|인체|사고/i.test(effect)) severity = 10;
+  else if (/기능.*불량|작동.*불가|고객.*불만/i.test(effect)) severity = 8;
+  else if (/조립.*불량|성능.*저하|누수|누유/i.test(effect)) severity = 7;
+  else if (/품질.*저하|이슈|리워크|재작업/i.test(effect)) severity = 6;
+  else if (/외관|소음|진동/i.test(effect)) severity = 4;
+  else if (/경미|미미/i.test(effect)) severity = 2;
+  // 특성등급 보정
+  if (cat === 'critical') severity = Math.max(severity, 9);
+  else if (cat === 'major') severity = Math.max(severity, 7);
+
+  // --- Potential Cause 생성 ---
+  const causes: string[] = [];
+  if (/가공|절삭|선반|밀링|드릴/i.test(step)) {
+    causes.push(`${step} 공정 변동`, '공구 마모', '설비 이상');
+  } else if (/조립|체결|삽입/i.test(step)) {
+    causes.push('체결 토크 변동', '부품 누락', '작업자 실수');
+  } else if (/용접|웰딩/i.test(step)) {
+    causes.push('용접 조건 변동', '전극 마모', '모재 상태 불량');
+  } else if (/도장|코팅|표면/i.test(step)) {
+    causes.push('도장 조건 변동', '환경 온습도', '전처리 불량');
+  } else if (/검사|측정/i.test(step)) {
+    causes.push('측정기 오차', '검사 기준 모호', '작업자 판정 오류');
+  } else {
+    causes.push(`${step} 공정 변동`, '설비 이상', '작업자 실수');
+  }
+  const potential_cause = causes.join(', ');
+
+  // --- Occurrence 판정 ---
+  let occurrence = 4;
+  if (/규격.*이탈|치수.*불량|편차/i.test(mode)) occurrence = 5;
+  else if (/누락|빠짐|미삽입/i.test(mode)) occurrence = 3;
+  else if (/파손|크랙|균열/i.test(mode)) occurrence = 3;
+  else if (/오염|이물/i.test(mode)) occurrence = 4;
+  else if (/변형|뒤틀림/i.test(mode)) occurrence = 4;
+
+  // --- 예방관리 생성 ---
+  let current_control_prevention = '작업표준서 준수, 정기 점검';
+  if (/가공|절삭/i.test(step)) current_control_prevention = '공정 조건 표준화, 공구 수명 관리, 정기 설비 점검';
+  else if (/조립|체결/i.test(step)) current_control_prevention = '토크 렌치 사용, 작업표준서 준수, Poka-Yoke 적용';
+  else if (/용접/i.test(step)) current_control_prevention = '용접 파라미터 관리, 전극 교체 주기 관리';
+  else if (/도장|코팅/i.test(step)) current_control_prevention = '도장 조건 관리, 환경 온습도 관리, 전처리 확인';
+
+  // --- 검출관리 생성 ---
+  let current_control_detection = '육안 검사, 측정 검사';
+  if (/치수|규격|길이|직경|두께/i.test(mode)) current_control_detection = '측정기기(캘리퍼/마이크로미터) 검사, SPC 모니터링';
+  else if (/외관|스크래치|찍힘/i.test(mode)) current_control_detection = '육안 검사, 한도 샘플 비교';
+  else if (/누락|빠짐/i.test(mode)) current_control_detection = 'Poka-Yoke 감지, 중량 검사';
+  else if (/토크|체결/i.test(mode)) current_control_detection = '토크 검사기, 마킹 확인';
+
+  // --- Detection 판정 ---
+  let detection = 5;
+  if (/전수|자동|센서|Poka-Yoke/i.test(current_control_detection)) detection = 3;
+  else if (/SPC|모니터링/i.test(current_control_detection)) detection = 4;
+  else if (/육안/i.test(current_control_detection)) detection = 6;
+  else if (/샘플링/i.test(current_control_detection)) detection = 7;
+
+  // --- 권장조치 생성 (Severity 기반) ---
+  let recommended_action: string;
+  const rpn = severity * occurrence * detection;
+  if (severity >= 9 || rpn >= 200) {
+    recommended_action = 'SPC 관리 도입, 공정능력(Cpk) 확인, 전수검사 실시, 설계 검토 요청';
+  } else if (severity >= 7 || rpn >= 100) {
+    recommended_action = '정기 검사 주기 단축, 작업자 교육 강화, 샘플링 검사 강화';
+  } else {
+    recommended_action = '작업자 자주검사 실시, 한도 샘플 관리, 정기 모니터링';
+  }
+
+  return {
+    severity,
+    potential_cause,
+    occurrence,
+    current_control_prevention,
+    current_control_detection,
+    detection,
+    recommended_action,
+  };
+}
 
 // ============ AI 문서 생성 (규칙 기반) ============
 
