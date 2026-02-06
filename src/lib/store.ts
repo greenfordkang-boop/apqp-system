@@ -691,6 +691,8 @@ export async function generatePfmeaForProduct(productId: string): Promise<{ head
   const header = await pfmeaStore.createHeader({
     product_id: productId,
     process_name: product.name + ' 제조공정',
+    doc_number: '',
+    author: '',
   });
 
   const lines: PfmeaLine[] = [];
@@ -737,6 +739,8 @@ export async function generateControlPlanForPfmea(pfmeaId: string, productId: st
     pfmea_id: pfmeaId,
     product_id: productId,
     name: `${product?.name || ''} 관리계획서`,
+    doc_number: '',
+    author: '',
   });
 
   const items: ControlPlanItem[] = [];
@@ -787,6 +791,8 @@ export async function generateSopForControlPlan(cpId: string, productId: string)
     control_plan_id: cpId,
     product_id: productId,
     name: `${product?.name || ''} 작업표준서`,
+    doc_number: '',
+    author: '',
   });
 
   const steps: SopStep[] = [];
@@ -826,6 +832,8 @@ export async function generateInspectionForControlPlan(cpId: string, productId: 
     control_plan_id: cpId,
     product_id: productId,
     name: `${product?.name || ''} 검사기준서`,
+    doc_number: '',
+    author: '',
   });
 
   const items: InspectionItem[] = [];
