@@ -332,20 +332,30 @@ export const pfmeaStore = {
   },
 
   createLine: async (input: Omit<PfmeaLine, 'id' | 'created_at' | 'rpn' | 'action_priority'>): Promise<PfmeaLine> => {
-    const rpn = input.severity * input.occurrence * input.detection;
-    const action_priority = rpn >= 200 ? 'H' : rpn >= 100 ? 'M' : 'L';
+    // rpn은 DB에서 GENERATED ALWAYS AS (severity * occurrence * detection) STORED
+    // action_priority는 INSERT 후 별도 UPDATE
     const { data, error } = await supabase
       .from('pfmea_lines')
-      .insert({ ...input, rpn, action_priority })
+      .insert(input)
       .select()
       .single();
     if (error) throw new Error(error.message);
-    return data;
+
+    // rpn 기반으로 action_priority 업데이트
+    const rpn = data.rpn ?? (input.severity * input.occurrence * input.detection);
+    const action_priority = rpn >= 200 ? 'H' : rpn >= 100 ? 'M' : 'L';
+    if (action_priority !== data.action_priority) {
+      await supabase.from('pfmea_lines').update({ action_priority }).eq('id', data.id);
+    }
+    return { ...data, rpn, action_priority };
   },
 
   updateLine: async (id: string, input: Partial<PfmeaLine>): Promise<PfmeaLine | null> => {
-    // RPN 재계산 필요 시 기존 값 가져오기
-    let updateData = { ...input };
+    // rpn은 DB GENERATED 컬럼이므로 제거, action_priority는 별도 처리
+    const { rpn: _rpn, ...safeInput } = input as Record<string, unknown>;
+    let updateData = { ...safeInput };
+
+    // S/O/D 변경 시 action_priority 재계산 (rpn은 DB가 자동 계산)
     if (input.severity !== undefined || input.occurrence !== undefined || input.detection !== undefined) {
       const { data: existing } = await supabase.from('pfmea_lines').select('severity,occurrence,detection').eq('id', id).single();
       if (existing) {
@@ -353,7 +363,7 @@ export const pfmeaStore = {
         const o = input.occurrence ?? existing.occurrence;
         const d = input.detection ?? existing.detection;
         const rpn = s * o * d;
-        updateData = { ...updateData, rpn, action_priority: rpn >= 200 ? 'H' : rpn >= 100 ? 'M' : 'L' };
+        updateData = { ...updateData, action_priority: rpn >= 200 ? 'H' : rpn >= 100 ? 'M' : 'L' };
       }
     }
     const { data, error } = await supabase.from('pfmea_lines').update(updateData).eq('id', id).select().single();
