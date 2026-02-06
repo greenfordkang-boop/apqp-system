@@ -48,6 +48,7 @@ export interface PfmeaHeader {
 export interface PfmeaLine {
   id: string;
   pfmea_id: string;
+  step_no: number;
   characteristic_id: string;
   process_step: string;
   potential_failure_mode: string;
@@ -331,12 +332,22 @@ export const pfmeaStore = {
     return !error;
   },
 
-  createLine: async (input: Omit<PfmeaLine, 'id' | 'created_at' | 'rpn' | 'action_priority'>): Promise<PfmeaLine> => {
+  createLine: async (input: Omit<PfmeaLine, 'id' | 'created_at' | 'rpn' | 'action_priority' | 'step_no'> & { step_no?: number }): Promise<PfmeaLine> => {
+    // step_no 자동 계산: 기존 라인 수 + 1
+    let stepNo = input.step_no;
+    if (!stepNo) {
+      const { count } = await supabase
+        .from('pfmea_lines')
+        .select('*', { count: 'exact', head: true })
+        .eq('pfmea_id', input.pfmea_id);
+      stepNo = (count ?? 0) + 1;
+    }
+
     // rpn은 DB에서 GENERATED ALWAYS AS (severity * occurrence * detection) STORED
-    // action_priority는 INSERT 후 별도 UPDATE
+    const insertData = { ...input, step_no: stepNo };
     const { data, error } = await supabase
       .from('pfmea_lines')
-      .insert(input)
+      .insert(insertData)
       .select()
       .single();
     if (error) throw new Error(error.message);
