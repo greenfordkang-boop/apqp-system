@@ -2,336 +2,282 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { productStore, pfmeaStore, controlPlanStore, sopStore, inspectionStore } from '@/lib/store';
 
-interface SopStep {
+interface Product {
   id: string;
-  step_number: number;
-  title: string;
-  description: string;
-  safety_notes: string | null;
-  equipment: string[] | null;
-  created_at: string;
-  control_plan_item: {
-    id: string;
-    characteristic: {
-      name: string;
-      type: string;
-    };
-  };
+  name: string;
+  code: string;
+  customer: string;
 }
 
-interface InspectionItem {
+interface Document {
   id: string;
-  inspection_type: string;
-  method: string;
-  frequency: string;
-  acceptance_criteria: string;
-  created_at: string;
-  control_plan_item: {
-    id: string;
-    characteristic: {
-      name: string;
-      type: string;
-    };
-  };
+  status: 'draft' | 'review' | 'approved';
+  itemCount: number;
+  revision: number;
+  createdAt: string;
 }
 
-type Tab = 'sop' | 'inspection';
+interface ProductDocuments {
+  product: Product;
+  pfmea?: Document;
+  controlPlan?: Document;
+  sop?: Document;
+  inspection?: Document;
+}
 
-export default function DocumentsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('sop');
-  const [sopSteps, setSopSteps] = useState<SopStep[]>([]);
-  const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDoc, setSelectedDoc] = useState<SopStep | InspectionItem | null>(null);
-
-  useEffect(() => {
-    if (activeTab === 'sop') {
-      fetchSopSteps();
-    } else {
-      fetchInspectionItems();
-    }
-  }, [activeTab]);
-
-  async function fetchSopSteps() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('sop_steps')
-      .select(`
-        *,
-        control_plan_item:control_plan_items(
-          id,
-          characteristic:characteristics(name, type)
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setSopSteps(data as unknown as SopStep[]);
-    }
-    setLoading(false);
+function getStatusColor(status?: string) {
+  if (!status) return 'bg-gray-100 text-gray-600';
+  switch (status) {
+    case 'draft':
+      return 'bg-gray-100 text-gray-700';
+    case 'review':
+      return 'bg-amber-100 text-amber-700';
+    case 'approved':
+      return 'bg-green-100 text-green-700';
+    default:
+      return 'bg-gray-100 text-gray-600';
   }
+}
 
-  async function fetchInspectionItems() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('inspection_items')
-      .select(`
-        *,
-        control_plan_item:control_plan_items(
-          id,
-          characteristic:characteristics(name, type)
-        )
-      `)
-      .order('created_at', { ascending: false });
+function getStatusLabel(status?: string) {
+  if (!status) return '미생성';
+  switch (status) {
+    case 'draft':
+      return '작성중';
+    case 'review':
+      return '검토중';
+    case 'approved':
+      return '승인됨';
+    default:
+      return '미생성';
+  }
+}
 
-    if (!error && data) {
-      setInspectionItems(data as unknown as InspectionItem[]);
-    }
-    setLoading(false);
+interface DocumentStatusProps {
+  document?: Document;
+  type: 'PFMEA' | '관리계획서' | '작업표준서' | '검사기준서';
+  documentPath: string;
+}
+
+function DocumentStatus({ document, type, documentPath }: DocumentStatusProps) {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ko-KR', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  if (!document) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="text-sm font-medium text-gray-500">{type}</div>
+        <div className="inline-block px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+          미생성
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-blue-600 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-medium text-gray-700">{type}</div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className={`inline-block px-2.5 py-1 text-xs font-medium rounded-full ${getStatusColor(document.status)}`}>
+          {getStatusLabel(document.status)}
+        </div>
+        <span className="text-xs text-gray-500">
+          {document.itemCount}개 항목
+        </span>
+        {document.revision > 0 && (
+          <span className="text-xs text-gray-500">
+            v{document.revision}
+          </span>
+        )}
+      </div>
+      <Link
+        href={documentPath}
+        className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors mt-1"
+      >
+        보기 →
+      </Link>
+      <div className="text-xs text-gray-400 mt-1">
+        {formatDate(document.createdAt)}
+      </div>
+    </div>
+  );
+}
+
+export default function DocumentsPage() {
+  const [productDocuments, setProductDocuments] = useState<ProductDocuments[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    loadProductDocuments();
+  }, []);
+
+  async function loadProductDocuments() {
+    setLoading(true);
+
+    try {
+      const products = await productStore.getAll();
+
+      const docsWithProducts = await Promise.all(
+        products.map(async (product) => {
+          // Get PFMEA document
+          const pfmeaHeader = await pfmeaStore.getHeaderByProductId(product.id);
+          const pfmea = pfmeaHeader ? {
+            id: pfmeaHeader.id,
+            status: pfmeaHeader.status,
+            itemCount: (await pfmeaStore.getLines(pfmeaHeader.id)).length,
+            revision: pfmeaHeader.revision,
+            createdAt: pfmeaHeader.created_at,
+          } : undefined;
+
+          // Get Control Plan document
+          const controlPlanHeader = await controlPlanStore.getByProductId(product.id);
+          const controlPlan = controlPlanHeader ? {
+            id: controlPlanHeader.id,
+            status: controlPlanHeader.status,
+            itemCount: (await controlPlanStore.getItems(controlPlanHeader.id)).length,
+            revision: controlPlanHeader.revision,
+            createdAt: controlPlanHeader.created_at,
+          } : undefined;
+
+          // Get SOP document
+          const sopHeader = await sopStore.getByProductId(product.id);
+          const sop = sopHeader ? {
+            id: sopHeader.id,
+            status: sopHeader.status,
+            itemCount: (await sopStore.getSteps(sopHeader.id)).length,
+            revision: sopHeader.revision,
+            createdAt: sopHeader.created_at,
+          } : undefined;
+
+          // Get Inspection document
+          const inspectionHeader = await inspectionStore.getByProductId(product.id);
+          const inspection = inspectionHeader ? {
+            id: inspectionHeader.id,
+            status: inspectionHeader.status,
+            itemCount: (await inspectionStore.getItems(inspectionHeader.id)).length,
+            revision: inspectionHeader.revision,
+            createdAt: inspectionHeader.created_at,
+          } : undefined;
+
+          return {
+            product,
+            pfmea,
+            controlPlan,
+            sop,
+            inspection,
+          };
+        })
+      );
+
+      setProductDocuments(
+        docsWithProducts.filter(
+          (d) => d.pfmea || d.controlPlan || d.sop || d.inspection
+        )
+      );
+    } catch (error) {
+      console.error('Error loading documents:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!mounted) {
+    return <div className="min-h-screen" />;
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/" className="text-white/80 hover:text-white">← 홈</Link>
-              <h1 className="text-2xl font-bold">문서 열람</h1>
-            </div>
+            <h1 className="text-2xl font-semibold text-gray-900">품질 문서 관리</h1>
             <Link
               href="/documents/generate"
-              className="px-4 py-2 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
             >
-              + 문서 생성
+              문서 생성
             </Link>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab('sop')}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-              activeTab === 'sop'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            📝 SOP (표준작업절차서)
-          </button>
-          <button
-            onClick={() => setActiveTab('inspection')}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-              activeTab === 'inspection'
-                ? 'bg-green-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            ✅ 검사기준서
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Document List */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              {activeTab === 'sop' ? 'SOP 목록' : '검사기준서 목록'}
-            </h2>
-
-            {loading ? (
-              <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-                로딩 중...
-              </div>
-            ) : activeTab === 'sop' ? (
-              sopSteps.length === 0 ? (
-                <EmptyState type="SOP" />
-              ) : (
-                <div className="space-y-3">
-                  {sopSteps.map((step) => (
-                    <div
-                      key={step.id}
-                      onClick={() => setSelectedDoc(step)}
-                      className={`bg-white rounded-lg shadow p-4 cursor-pointer transition-all ${
-                        selectedDoc?.id === step.id
-                          ? 'ring-2 ring-blue-500'
-                          : 'hover:shadow-md'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-gray-800">
-                            Step {step.step_number}: {step.title}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            특성: {step.control_plan_item?.characteristic?.name || 'N/A'}
-                          </p>
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          {new Date(step.created_at).toLocaleDateString('ko-KR')}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            ) : (
-              inspectionItems.length === 0 ? (
-                <EmptyState type="검사기준서" />
-              ) : (
-                <div className="space-y-3">
-                  {inspectionItems.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => setSelectedDoc(item)}
-                      className={`bg-white rounded-lg shadow p-4 cursor-pointer transition-all ${
-                        selectedDoc?.id === item.id
-                          ? 'ring-2 ring-green-500'
-                          : 'hover:shadow-md'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold text-gray-800">
-                            {item.control_plan_item?.characteristic?.name || 'N/A'}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            검사유형: {item.inspection_type} | 주기: {item.frequency}
-                          </p>
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          {new Date(item.created_at).toLocaleDateString('ko-KR')}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-gray-500 font-medium">로딩 중...</div>
           </div>
-
-          {/* Document Detail */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">문서 상세</h2>
-
-            {selectedDoc ? (
-              <div className="bg-white rounded-lg shadow p-6">
-                {activeTab === 'sop' && 'step_number' in selectedDoc ? (
-                  <SopDetail step={selectedDoc} />
-                ) : activeTab === 'inspection' && 'inspection_type' in selectedDoc ? (
-                  <InspectionDetail item={selectedDoc} />
-                ) : null}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-                문서를 선택하면 상세 내용이 표시됩니다
-              </div>
-            )}
+        ) : productDocuments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 bg-gray-50 rounded-lg border border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">생성된 문서가 없습니다</h2>
+            <p className="text-gray-600 mb-6">먼저 제품을 등록한 후 문서를 생성해주세요.</p>
+            <Link
+              href="/products/new"
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            >
+              제품 등록하기
+            </Link>
           </div>
-        </div>
-      </main>
-    </div>
-  );
-}
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {productDocuments.map((doc) => (
+              <div
+                key={doc.product.id}
+                className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-6"
+              >
+                {/* Product Header */}
+                <div className="mb-6 pb-4 border-b border-gray-100">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {doc.product.name}
+                  </h2>
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="text-sm text-gray-600">
+                      <span className="font-medium">코드:</span> {doc.product.code}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      <span className="font-medium">고객사:</span> {doc.product.customer || '-'}
+                    </span>
+                  </div>
+                </div>
 
-function EmptyState({ type }: { type: string }) {
-  return (
-    <div className="bg-white rounded-lg shadow p-6 text-center">
-      <p className="text-gray-500 mb-4">생성된 {type}가 없습니다</p>
-      <Link
-        href="/documents/generate"
-        className="px-4 py-2 bg-blue-600 text-white rounded-lg inline-block"
-      >
-        문서 생성하기
-      </Link>
-    </div>
-  );
-}
-
-function SopDetail({ step }: { step: SopStep }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-xl font-bold text-gray-800">
-          Step {step.step_number}: {step.title}
-        </h3>
-        <p className="text-sm text-gray-500">
-          관련 특성: {step.control_plan_item?.characteristic?.name}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="font-semibold text-gray-700 mb-2">작업 설명</h4>
-        <p className="text-gray-600 whitespace-pre-wrap">{step.description}</p>
-      </div>
-
-      {step.safety_notes && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-          <h4 className="font-semibold text-yellow-800 mb-1">⚠️ 안전 주의사항</h4>
-          <p className="text-yellow-700">{step.safety_notes}</p>
-        </div>
-      )}
-
-      {step.equipment && step.equipment.length > 0 && (
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-2">필요 장비</h4>
-          <ul className="list-disc list-inside text-gray-600">
-            {step.equipment.map((eq, i) => (
-              <li key={i}>{eq}</li>
+                {/* Document Status Grid */}
+                <div className="grid grid-cols-2 gap-6">
+                  <DocumentStatus
+                    document={doc.pfmea}
+                    type="PFMEA"
+                    documentPath={doc.pfmea ? `/documents/pfmea/${doc.pfmea.id}` : '#'}
+                  />
+                  <DocumentStatus
+                    document={doc.controlPlan}
+                    type="관리계획서"
+                    documentPath={doc.controlPlan ? `/documents/control-plan/${doc.controlPlan.id}` : '#'}
+                  />
+                  <DocumentStatus
+                    document={doc.sop}
+                    type="작업표준서"
+                    documentPath={doc.sop ? `/documents/sop/${doc.sop.id}` : '#'}
+                  />
+                  <DocumentStatus
+                    document={doc.inspection}
+                    type="검사기준서"
+                    documentPath={doc.inspection ? `/documents/inspection/${doc.inspection.id}` : '#'}
+                  />
+                </div>
+              </div>
             ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="pt-4 border-t text-xs text-gray-400">
-        문서 ID: {step.id}<br/>
-        생성일: {new Date(step.created_at).toLocaleString('ko-KR')}
-      </div>
-    </div>
-  );
-}
-
-function InspectionDetail({ item }: { item: InspectionItem }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-xl font-bold text-gray-800">
-          {item.control_plan_item?.characteristic?.name}
-        </h3>
-        <p className="text-sm text-gray-500">
-          특성 유형: {item.control_plan_item?.characteristic?.type}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <h4 className="font-semibold text-gray-700">검사 유형</h4>
-          <p className="text-gray-600">{item.inspection_type}</p>
-        </div>
-        <div>
-          <h4 className="font-semibold text-gray-700">검사 주기</h4>
-          <p className="text-gray-600">{item.frequency}</p>
-        </div>
-      </div>
-
-      <div>
-        <h4 className="font-semibold text-gray-700 mb-2">검사 방법</h4>
-        <p className="text-gray-600 whitespace-pre-wrap">{item.method}</p>
-      </div>
-
-      <div className="bg-green-50 border-l-4 border-green-400 p-4">
-        <h4 className="font-semibold text-green-800 mb-1">✅ 합격 기준</h4>
-        <p className="text-green-700">{item.acceptance_criteria}</p>
-      </div>
-
-      <div className="pt-4 border-t text-xs text-gray-400">
-        문서 ID: {item.id}<br/>
-        생성일: {new Date(item.created_at).toLocaleString('ko-KR')}
-      </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

@@ -1,459 +1,502 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { use, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { productStore, characteristicStore, type Product, type Characteristic } from '@/lib/store';
 
-interface CharacteristicInput {
-  id?: string;
-  name: string;
-  type: 'product' | 'process';
-  category: 'critical' | 'major' | 'minor';
-  specification: string;
-  usl: string;
-  lsl: string;
-  unit: string;
-  isNew?: boolean;
-  isDeleted?: boolean;
+interface CharacteristicInput extends Characteristic {
+  _isNew?: boolean;
 }
 
-interface Product {
-  id: string;
-  name: string;
-  code: string;
-  customer: string | null;
-  description: string | null;
-  status: string;
+interface PageProps {
+  params: Promise<{ id: string }>;
 }
 
-export default function EditProductPage() {
+export default function EditProductPage({ params }: PageProps) {
+  const { id } = use(params);
   const router = useRouter();
-  const params = useParams();
-  const productId = params.id as string;
-
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
+  const [product, setProduct] = useState<Product | null>(null);
   const [productName, setProductName] = useState('');
   const [productCode, setProductCode] = useState('');
   const [customer, setCustomer] = useState('');
   const [description, setDescription] = useState('');
-  const [originalCode, setOriginalCode] = useState('');
 
   const [characteristics, setCharacteristics] = useState<CharacteristicInput[]>([]);
+  const [newCharForm, setNewCharForm] = useState({
+    name: '',
+    type: 'process' as 'product' | 'process',
+    category: 'minor' as 'critical' | 'major' | 'minor',
+    specification: '',
+    lsl: '',
+    usl: '',
+    unit: 'mm',
+    measurement_method: '',
+    process_name: ''
+  });
 
   useEffect(() => {
-    if (productId) {
-      fetchProduct();
+    const load = async () => {
+      await loadData();
+    };
+    load();
+  }, []);
+
+  async function loadData() {
+    const prod = await productStore.getById(id);
+    if (!prod) {
+      router.push('/products');
+      return;
     }
-  }, [productId]);
 
-  async function fetchProduct() {
+    setProduct(prod);
+    setProductName(prod.name);
+    setProductCode(prod.code);
+    setCustomer(prod.customer);
+    setDescription(prod.description);
+
+    const chars = await characteristicStore.getByProductId(id);
+    setCharacteristics(chars);
+    setMounted(true);
+  }
+
+  function addCharacteristic() {
+    if (!newCharForm.name.trim()) {
+      setError('특성명을 입력하세요');
+      return;
+    }
+
+    setError(null);
+    const newChar: CharacteristicInput = {
+      id: `new-${Date.now()}`,
+      product_id: id,
+      name: newCharForm.name,
+      type: newCharForm.type,
+      category: newCharForm.category,
+      specification: newCharForm.specification,
+      lsl: newCharForm.lsl ? parseFloat(newCharForm.lsl) : null,
+      usl: newCharForm.usl ? parseFloat(newCharForm.usl) : null,
+      unit: newCharForm.unit,
+      measurement_method: newCharForm.measurement_method,
+      process_name: newCharForm.process_name,
+      created_at: new Date().toISOString(),
+      _isNew: true
+    };
+
+    setCharacteristics([...characteristics, newChar]);
+    setNewCharForm({
+      name: '',
+      type: 'process',
+      category: 'minor',
+      specification: '',
+      lsl: '',
+      usl: '',
+      unit: 'mm',
+      measurement_method: '',
+      process_name: ''
+    });
+  }
+
+  function removeCharacteristic(charId: string) {
+    setCharacteristics(characteristics.filter(c => c.id !== charId));
+  }
+
+  function updateCharField(charId: string, field: keyof Characteristic, value: any) {
+    setCharacteristics(characteristics.map(c => 
+      c.id === charId ? { ...c, [field]: value } : c
+    ));
+  }
+
+  async function handleSave() {
+    setError(null);
     setLoading(true);
-    try {
-      // Fetch product
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', productId)
-        .single();
 
-      if (productError || !product) {
-        setError('제품을 찾을 수 없습니다.');
+    try {
+      if (!productName.trim()) {
+        setError('제품명을 입력하세요');
+        setLoading(false);
+        return;
+      }
+      if (!productCode.trim()) {
+        setError('제품코드를 입력하세요');
         setLoading(false);
         return;
       }
 
-      setProductName(product.name);
-      setProductCode(product.code);
-      setOriginalCode(product.code);
-      setCustomer(product.customer || '');
-      setDescription(product.description || '');
-
-      // Fetch characteristics for this product
-      const { data: chars, error: charError } = await supabase
-        .from('characteristics')
-        .select('*')
-        .eq('product_id', productId);
-
-      if (!charError && chars) {
-        setCharacteristics(chars.map(c => ({
-          id: c.id,
-          name: c.name,
-          type: c.type as 'product' | 'process',
-          category: c.category as 'critical' | 'major' | 'minor',
-          specification: c.specification || '',
-          usl: c.usl?.toString() || '',
-          lsl: c.lsl?.toString() || '',
-          unit: c.unit || 'mm',
-          isNew: false,
-          isDeleted: false,
-        })));
-      }
-    } catch (err) {
-      setError('데이터를 불러오는 중 오류가 발생했습니다.');
-    }
-    setLoading(false);
-  }
-
-  const addCharacteristic = () => {
-    setCharacteristics([
-      ...characteristics,
-      {
-        name: '',
-        type: 'process',
-        category: 'minor',
-        specification: '',
-        usl: '',
-        lsl: '',
-        unit: 'mm',
-        isNew: true,
-        isDeleted: false,
-      }
-    ]);
-  };
-
-  const removeCharacteristic = (index: number) => {
-    const updated = [...characteristics];
-    if (updated[index].isNew) {
-      // New items can be removed directly
-      updated.splice(index, 1);
-    } else {
-      // Existing items are marked for deletion
-      updated[index].isDeleted = true;
-    }
-    setCharacteristics(updated);
-  };
-
-  const restoreCharacteristic = (index: number) => {
-    const updated = [...characteristics];
-    updated[index].isDeleted = false;
-    setCharacteristics(updated);
-  };
-
-  const updateCharacteristic = (index: number, field: keyof CharacteristicInput, value: string) => {
-    const updated = [...characteristics];
-    updated[index] = { ...updated[index], [field]: value };
-    setCharacteristics(updated);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-
-    try {
       // Update product
-      const { error: productError } = await supabase
-        .from('products')
-        .update({
-          name: productName,
-          code: productCode,
-          customer: customer || null,
-          description: description || null,
-        })
-        .eq('id', productId);
+      await productStore.update(id, {
+        name: productName,
+        code: productCode,
+        customer: customer || '',
+        description: description || ''
+      });
 
-      if (productError) throw productError;
+      // Handle characteristics: delete removed, update existing, create new
+      const originalChars = await characteristicStore.getByProductId(id);
+      const originalIds = new Set(originalChars.map(c => c.id));
+      const currentIds = new Set(characteristics.filter(c => !c._isNew).map(c => c.id));
 
-      // Get process for this product (to link new characteristics)
-      const { data: processes } = await supabase
-        .from('processes')
-        .select('id')
-        .eq('code', `${originalCode}-PROC-001`)
-        .single();
-
-      const processId = processes?.id;
-
-      // Handle characteristics
-      for (const char of characteristics) {
-        if (char.isDeleted && char.id) {
-          // Delete existing characteristic
-          await supabase.from('characteristics').delete().eq('id', char.id);
-        } else if (char.isNew && !char.isDeleted) {
-          // Insert new characteristic
-          await supabase.from('characteristics').insert({
-            product_id: productId,
-            process_id: processId,
-            name: char.name,
-            type: char.type,
-            category: char.category,
-            specification: char.specification || null,
-            usl: parseFloat(char.usl) || null,
-            lsl: parseFloat(char.lsl) || null,
-            unit: char.unit,
-            canonical_name: char.name.toLowerCase().replace(/\s+/g, '_'),
-          });
-        } else if (char.id && !char.isDeleted) {
-          // Update existing characteristic
-          await supabase.from('characteristics')
-            .update({
-              name: char.name,
-              type: char.type,
-              category: char.category,
-              specification: char.specification || null,
-              usl: parseFloat(char.usl) || null,
-              lsl: parseFloat(char.lsl) || null,
-              unit: char.unit,
-              canonical_name: char.name.toLowerCase().replace(/\s+/g, '_'),
-            })
-            .eq('id', char.id);
+      // Delete removed characteristics
+      for (const origChar of originalChars) {
+        if (!currentIds.has(origChar.id)) {
+          await characteristicStore.delete(origChar.id);
         }
       }
 
-      setSuccess(true);
-      setTimeout(() => {
-        router.push('/products');
-      }, 1500);
+      // Update existing characteristics
+      for (const char of characteristics) {
+        if (!char._isNew) {
+          await characteristicStore.update(char.id, {
+            name: char.name,
+            type: char.type,
+            category: char.category,
+            specification: char.specification,
+            lsl: char.lsl,
+            usl: char.usl,
+            unit: char.unit,
+            measurement_method: char.measurement_method,
+            process_name: char.process_name
+          });
+        } else {
+          // Create new characteristic
+          await characteristicStore.create({
+            product_id: id,
+            name: char.name,
+            type: char.type,
+            category: char.category,
+            specification: char.specification,
+            lsl: char.lsl,
+            usl: char.usl,
+            unit: char.unit,
+            measurement_method: char.measurement_method,
+            process_name: char.process_name
+          });
+        }
+      }
 
-    } catch (err: unknown) {
-      console.error('Error updating product:', err);
-      setError(err instanceof Error ? err.message : '제품 수정에 실패했습니다.');
+      router.push('/products');
+    } catch (err) {
+      console.error('Error saving product:', err);
+      setError('저장 중 오류가 발생했습니다.');
     } finally {
-      setSaving(false);
+      setLoading(false);
+    }
+  }
+
+  const getCategoryBadge = (category: 'critical' | 'major' | 'minor') => {
+    switch (category) {
+      case 'critical':
+        return <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-medium">Critical</span>;
+      case 'major':
+        return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">Major</span>;
+      default:
+        return <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">Minor</span>;
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">로딩 중...</div>
-      </div>
-    );
+  const getTypeBadge = (type: 'product' | 'process') => {
+    return type === 'product' 
+      ? <span className="text-xs text-blue-600">제품특성</span>
+      : <span className="text-xs text-purple-600">공정특성</span>;
+  };
+
+  if (!mounted || !product) {
+    return <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">로딩 중...</div>;
   }
 
-  const visibleCharacteristics = characteristics.filter(c => !c.isDeleted);
-  const deletedCharacteristics = characteristics.filter(c => c.isDeleted);
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-blue-600 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Link href="/products" className="text-white/80 hover:text-white">← 제품 목록</Link>
-            <h1 className="text-2xl font-bold">제품 수정</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header */}
+      <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/70 border-b border-gray-200/50 shadow-sm">
+        <div className="max-w-5xl mx-auto px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Link href="/products" className="text-gray-600 hover:text-gray-900 text-sm font-medium">
+              ← 제품 관리
+            </Link>
+            <div className="w-px h-6 bg-gray-200"></div>
+            <h1 className="text-2xl font-bold text-gray-900">{product.name} 편집</h1>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
-            ✅ 제품이 성공적으로 수정되었습니다! 잠시 후 목록으로 이동합니다...
-          </div>
-        )}
-
+      <main className="max-w-5xl mx-auto px-6 py-8">
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            ❌ 오류: {error}
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-medium">
+            {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <section className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">제품 정보</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Product Info Section */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-8 backdrop-blur-sm mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">제품 정보</h2>
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   제품명 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  required
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   제품 코드 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  required
                   value={productCode}
                   onChange={(e) => setProductCode(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">고객사</label>
-                <input
-                  type="text"
-                  value={customer}
-                  onChange={(e) => setCustomer(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">설명</label>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
-          </section>
 
-          <section className="bg-white rounded-lg shadow p-6 mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">특성 (Characteristics)</h2>
-              <button
-                type="button"
-                onClick={addCharacteristic}
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-              >
-                + 특성 추가
-              </button>
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">고객사</label>
+              <input
+                type="text"
+                value={customer}
+                onChange={(e) => setCustomer(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
             </div>
 
-            {visibleCharacteristics.length === 0 ? (
-              <div className="text-center py-6 text-gray-500">
-                등록된 특성이 없습니다. 특성을 추가해주세요.
-              </div>
-            ) : (
-              visibleCharacteristics.map((char, index) => {
-                const realIndex = characteristics.findIndex(c => c === char);
-                return (
-                  <div key={char.id || `new-${index}`} className={`border rounded-lg p-4 mb-4 ${char.isNew ? 'bg-green-50 border-green-200' : 'bg-gray-50'}`}>
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="font-medium text-gray-700">
-                        특성 #{index + 1}
-                        {char.isNew && <span className="ml-2 text-xs text-green-600">(새로 추가)</span>}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeCharacteristic(realIndex)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        삭제
-                      </button>
-                    </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">설명</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+              />
+            </div>
+          </div>
+        </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className="md:col-span-2">
-                        <label className="block text-sm text-gray-600 mb-1">특성명</label>
+        {/* Existing Characteristics */}
+        {characteristics.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-8 backdrop-blur-sm mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">특성 목록</h2>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-gray-700 font-semibold">특성명</th>
+                    <th className="px-4 py-3 text-left text-gray-700 font-semibold">유형</th>
+                    <th className="px-4 py-3 text-left text-gray-700 font-semibold">중요도</th>
+                    <th className="px-4 py-3 text-left text-gray-700 font-semibold">규격</th>
+                    <th className="px-4 py-3 text-right text-gray-700 font-semibold">LSL/USL</th>
+                    <th className="px-4 py-3 text-right text-gray-700 font-semibold">작업</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {characteristics.map((char, idx) => (
+                    <tr key={char.id} className={`border-t border-gray-100 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'} hover:bg-blue-50/50`}>
+                      <td className="px-4 py-3">
                         <input
                           type="text"
-                          required
                           value={char.name}
-                          onChange={(e) => updateCharacteristic(realIndex, 'name', e.target.value)}
-                          className="w-full px-3 py-2 border rounded-md text-sm"
+                          onChange={(e) => updateCharField(char.id, 'name', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">유형</label>
+                      </td>
+                      <td className="px-4 py-3">
                         <select
                           value={char.type}
-                          onChange={(e) => updateCharacteristic(realIndex, 'type', e.target.value)}
-                          className="w-full px-3 py-2 border rounded-md text-sm"
+                          onChange={(e) => updateCharField(char.id, 'type', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
                         >
-                          <option value="process">공정 특성</option>
-                          <option value="product">제품 특성</option>
+                          <option value="product">제품</option>
+                          <option value="process">공정</option>
                         </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">중요도</label>
+                      </td>
+                      <td className="px-4 py-3">
                         <select
                           value={char.category}
-                          onChange={(e) => updateCharacteristic(realIndex, 'category', e.target.value)}
-                          className="w-full px-3 py-2 border rounded-md text-sm"
+                          onChange={(e) => updateCharField(char.id, 'category', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs"
                         >
-                          <option value="critical">Critical (중요)</option>
-                          <option value="major">Major (주요)</option>
-                          <option value="minor">Minor (일반)</option>
+                          <option value="critical">Critical</option>
+                          <option value="major">Major</option>
+                          <option value="minor">Minor</option>
                         </select>
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-sm text-gray-600 mb-1">규격 (Specification)</label>
+                      </td>
+                      <td className="px-4 py-3">
                         <input
                           type="text"
                           value={char.specification}
-                          onChange={(e) => updateCharacteristic(realIndex, 'specification', e.target.value)}
-                          className="w-full px-3 py-2 border rounded-md text-sm"
-                          placeholder="예: 10.0 ± 0.5mm"
+                          onChange={(e) => updateCharField(char.id, 'specification', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">단위</label>
-                        <input
-                          type="text"
-                          value={char.unit}
-                          onChange={(e) => updateCharacteristic(realIndex, 'unit', e.target.value)}
-                          className="w-full px-3 py-2 border rounded-md text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">상한 (USL)</label>
-                        <input
-                          type="number"
-                          step="0.001"
-                          value={char.usl}
-                          onChange={(e) => updateCharacteristic(realIndex, 'usl', e.target.value)}
-                          className="w-full px-3 py-2 border rounded-md text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-600 mb-1">하한 (LSL)</label>
-                        <input
-                          type="number"
-                          step="0.001"
-                          value={char.lsl}
-                          onChange={(e) => updateCharacteristic(realIndex, 'lsl', e.target.value)}
-                          className="w-full px-3 py-2 border rounded-md text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-
-            {/* Show deleted characteristics */}
-            {deletedCharacteristics.length > 0 && (
-              <div className="mt-6 pt-4 border-t">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">삭제 예정 특성 (저장 시 삭제됨)</h3>
-                {deletedCharacteristics.map((char) => {
-                  const realIndex = characteristics.findIndex(c => c === char);
-                  return (
-                    <div key={char.id} className="flex justify-between items-center bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
-                      <span className="text-red-700 line-through">{char.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => restoreCharacteristic(realIndex)}
-                        className="text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        복원
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          <div className="flex gap-4">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
-            >
-              {saving ? '저장 중...' : '변경사항 저장'}
-            </button>
-            <Link
-              href="/products"
-              className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 text-center"
-            >
-              취소
-            </Link>
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs text-gray-600 font-mono">
+                        {char.lsl !== null && char.usl !== null ? (
+                          <span>{char.lsl} ~ {char.usl}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => removeCharacteristic(char.id)}
+                          className="text-red-600 hover:text-red-700 text-xs font-semibold"
+                        >
+                          삭제
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </form>
+        )}
+
+        {/* Add New Characteristic */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-8 backdrop-blur-sm mb-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">새 특성 추가</h2>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold text-gray-900 mb-2">특성명</label>
+              <input
+                type="text"
+                value={newCharForm.name}
+                onChange={(e) => setNewCharForm({ ...newCharForm, name: e.target.value })}
+                placeholder="예: 길이"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">유형</label>
+              <select
+                value={newCharForm.type}
+                onChange={(e) => setNewCharForm({ ...newCharForm, type: e.target.value as 'product' | 'process' })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              >
+                <option value="product">제품특성</option>
+                <option value="process">공정특성</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">중요도</label>
+              <select
+                value={newCharForm.category}
+                onChange={(e) => setNewCharForm({ ...newCharForm, category: e.target.value as 'critical' | 'major' | 'minor' })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              >
+                <option value="critical">Critical</option>
+                <option value="major">Major</option>
+                <option value="minor">Minor</option>
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold text-gray-900 mb-2">규격</label>
+              <input
+                type="text"
+                value={newCharForm.specification}
+                onChange={(e) => setNewCharForm({ ...newCharForm, specification: e.target.value })}
+                placeholder="예: 좌표 특성"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">LSL</label>
+              <input
+                type="number"
+                step="0.01"
+                value={newCharForm.lsl}
+                onChange={(e) => setNewCharForm({ ...newCharForm, lsl: e.target.value })}
+                placeholder="0.0"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">USL</label>
+              <input
+                type="number"
+                step="0.01"
+                value={newCharForm.usl}
+                onChange={(e) => setNewCharForm({ ...newCharForm, usl: e.target.value })}
+                placeholder="10.0"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-2">단위</label>
+              <input
+                type="text"
+                value={newCharForm.unit}
+                onChange={(e) => setNewCharForm({ ...newCharForm, unit: e.target.value })}
+                placeholder="mm"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              />
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold text-gray-900 mb-2">측정 방법</label>
+              <input
+                type="text"
+                value={newCharForm.measurement_method}
+                onChange={(e) => setNewCharForm({ ...newCharForm, measurement_method: e.target.value })}
+                placeholder="예: 마이크로미터"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              />
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold text-gray-900 mb-2">공정명</label>
+              <input
+                type="text"
+                value={newCharForm.process_name}
+                onChange={(e) => setNewCharForm({ ...newCharForm, process_name: e.target.value })}
+                placeholder="예: 선반 가공"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={addCharacteristic}
+            className="w-full mt-4 px-4 py-3 bg-gray-100 text-gray-900 border-2 border-gray-300 rounded-lg font-semibold hover:bg-gray-200 transition-all text-sm"
+          >
+            + 특성 추가
+          </button>
+        </div>
+
+        {/* Save Button */}
+        <div className="flex gap-3">
+          <Link
+            href="/products"
+            className="flex-1 text-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-all"
+          >
+            취소
+          </Link>
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? '저장 중...' : '저장'}
+          </button>
+        </div>
       </main>
     </div>
   );
