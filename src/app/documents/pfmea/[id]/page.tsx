@@ -371,6 +371,20 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
     return editingLines.get(lineId) || lines.find((l) => l.id === lineId)!;
   };
 
+  const getCharNameForPrint = (charId: string | null): string => {
+    if (!charId) return '';
+    const char = characteristics.find(c => c.id === charId);
+    return char?.name || '';
+  };
+
+  const getCharClass = (charId: string | null): string => {
+    if (!charId) return '';
+    const char = characteristics.find(c => c.id === charId);
+    if (char?.category === 'critical') return 'CC';
+    if (char?.category === 'major') return 'SC';
+    return '';
+  };
+
   if (!mounted) return <div className="min-h-screen" />;
 
   if (loading) {
@@ -405,19 +419,35 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <style>{`
         @media print {
-          * { background: white !important; color: black !important; box-shadow: none !important; border-color: #ddd !important; }
-          body { margin: 0; padding: 20px; }
-          .no-print { display: none !important; }
-          .print-table { width: 100%; border-collapse: collapse; font-size: 10px; }
-          .print-table th, .print-table td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-          .print-table th { background-color: #f5f5f5; font-weight: bold; }
+          *, *::before, *::after { background: transparent !important; color: #000 !important; box-shadow: none !important; text-shadow: none !important; }
+          body { margin: 0; padding: 0; }
+          @page { size: A4 landscape; margin: 6mm; }
+          .pfmea-screen { display: none !important; }
+          .pfmea-print { display: block !important; padding: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+          .print-title { text-align: center; margin-bottom: 6px; }
+          .print-title h1 { font-size: 14pt; font-weight: bold; margin: 0; }
+          .print-title p { font-size: 8pt; margin: 2px 0 0; }
+          .print-header { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+          .print-header td { border: 1px solid #000; padding: 2px 4px; font-size: 7pt; }
+          .print-header .lbl { font-weight: bold; white-space: nowrap; }
+          .print-body { width: 100%; border-collapse: collapse; }
+          .print-body th { border: 1px solid #000; padding: 2px; font-size: 6pt; font-weight: bold; text-align: center; vertical-align: middle; line-height: 1.3; }
+          .print-body td { border: 1px solid #000; padding: 1px 2px; font-size: 6.5pt; vertical-align: top; word-break: break-word; }
+          .print-body tbody tr { height: 24px; }
+          .print-body .c { text-align: center; vertical-align: middle; }
+          .print-notes { margin-top: 3px; font-size: 6.5pt; }
+          .print-notes p { margin: 1px 0; }
+          .print-approval { margin-top: 10px; border-collapse: collapse; }
+          .print-approval td { border: 1px solid #000; padding: 3px 10px; font-size: 7pt; text-align: center; }
+          .print-approval .lbl { font-weight: bold; }
+          .print-approval .sign { width: 70px; height: 35px; }
           table { page-break-inside: auto; }
           tr { page-break-inside: avoid; }
         }
       `}</style>
 
       {/* ===== Header ===== */}
-      <header className="sticky top-0 z-40 backdrop-blur-md bg-white/80 border-b border-white/20 shadow-sm">
+      <header className="pfmea-screen sticky top-0 z-40 backdrop-blur-md bg-white/80 border-b border-white/20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -441,7 +471,7 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="pfmea-screen max-w-7xl mx-auto px-4 py-6">
 
         {/* ===== 1. 기본정보 헤더 ===== */}
         <div className="bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl shadow-sm mb-6 overflow-hidden">
@@ -983,6 +1013,123 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
           <p>최종 업데이트: {new Date(pfmea.updated_at).toLocaleString('ko-KR')}</p>
         </div>
       </main>
+
+      {/* ===== Print Layout - AIAG & VDA FMEA Format ===== */}
+      <div className="pfmea-print hidden">
+        <div className="print-title">
+          <h1>공정 FMEA (Process FMEA)</h1>
+          <p>AIAG &amp; VDA FMEA Handbook 기준</p>
+        </div>
+
+        <table className="print-header">
+          <tbody>
+            <tr>
+              <td className="lbl">회사명 / Company</td>
+              <td>신성오토텍(주)</td>
+              <td className="lbl">FMEA No.</td>
+              <td>{pfmea.doc_number || '-'}</td>
+              <td className="lbl">작성일 / Date</td>
+              <td>{new Date(pfmea.created_at).toLocaleDateString('ko-KR')}</td>
+              <td className="lbl">Rev.</td>
+              <td>{pfmea.revision}</td>
+            </tr>
+            <tr>
+              <td className="lbl">제품명 / Product</td>
+              <td>{product?.name || '-'}</td>
+              <td className="lbl">공정명 / Process</td>
+              <td>{pfmea.process_name || '-'}</td>
+              <td className="lbl">책임자 / Owner</td>
+              <td>{pfmea.author || '-'}</td>
+              <td className="lbl">Page</td>
+              <td>1 / 1</td>
+            </tr>
+            <tr>
+              <td className="lbl">고객 / Customer</td>
+              <td>{product?.customer || '-'}</td>
+              <td className="lbl">모델 / Model</td>
+              <td>{product?.vehicle_model || '-'}</td>
+              <td className="lbl">팀 / Team</td>
+              <td>-</td>
+              <td className="lbl">기밀등급</td>
+              <td>-</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table className="print-body">
+          <thead>
+            <tr>
+              <th rowSpan={2} style={{width:'2.5%'}}>No.</th>
+              <th rowSpan={2} style={{width:'6%'}}>공정단계<br/>Process<br/>Step</th>
+              <th rowSpan={2} style={{width:'7%'}}>공정기능<br/>및 요구사항<br/>Function/<br/>Requirement</th>
+              <th rowSpan={2} style={{width:'7%'}}>잠재적<br/>고장모드<br/>Potential<br/>Failure Mode</th>
+              <th rowSpan={2} style={{width:'6%'}}>잠재적<br/>고장영향<br/>Potential<br/>Effect</th>
+              <th rowSpan={2} style={{width:'2%'}}>S</th>
+              <th rowSpan={2} style={{width:'3%'}}>분류<br/>Class</th>
+              <th rowSpan={2} style={{width:'7%'}}>잠재적<br/>고장원인<br/>Potential<br/>Cause</th>
+              <th rowSpan={2} style={{width:'7%'}}>예방관리<br/>Prevention<br/>Control</th>
+              <th rowSpan={2} style={{width:'2%'}}>O</th>
+              <th rowSpan={2} style={{width:'7%'}}>검출관리<br/>Detection<br/>Control</th>
+              <th rowSpan={2} style={{width:'2%'}}>D</th>
+              <th rowSpan={2} style={{width:'3%'}}>AP<br/>(Action<br/>Priority)</th>
+              <th rowSpan={2} style={{width:'9%'}}>권고조치<br/>Recommended<br/>Action</th>
+              <th rowSpan={2} style={{width:'5%'}}>책임자<br/>/목표일</th>
+              <th colSpan={5}>조치결과</th>
+            </tr>
+            <tr>
+              <th style={{width:'8%'}}>조치내용<br/>Action Taken</th>
+              <th style={{width:'2%'}}>S</th>
+              <th style={{width:'2%'}}>O</th>
+              <th style={{width:'2%'}}>D</th>
+              <th style={{width:'2.5%'}}>AP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((line, idx) => (
+              <tr key={line.id}>
+                <td className="c">{idx + 1}</td>
+                <td>{line.process_step}</td>
+                <td>{getCharNameForPrint(line.characteristic_id)}</td>
+                <td>{line.potential_failure_mode}</td>
+                <td>{line.potential_effect || ''}</td>
+                <td className="c">{line.severity}</td>
+                <td className="c">{getCharClass(line.characteristic_id)}</td>
+                <td>{line.potential_cause || ''}</td>
+                <td>{line.current_control_prevention || ''}</td>
+                <td className="c">{line.occurrence}</td>
+                <td>{line.current_control_detection || ''}</td>
+                <td className="c">{line.detection}</td>
+                <td className="c">{line.action_priority || ''}</td>
+                <td>{line.recommended_action || ''}</td>
+                <td></td>
+                <td></td>
+                <td className="c"></td>
+                <td className="c"></td>
+                <td className="c"></td>
+                <td className="c"></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="print-notes">
+          <p>※ S: 심각도(Severity 1-10) / O: 발생도(Occurrence 1-10) / D: 검출도(Detection 1-10) / AP: 조치우선순위(H/M/L)</p>
+          <p>※ AIAG &amp; VDA FMEA Handbook 기준 양식 | 분류(Class): CC=중요특성, SC=안전특성, 공란=일반특성</p>
+        </div>
+
+        <table className="print-approval">
+          <tbody>
+            <tr>
+              <td className="lbl">작성</td>
+              <td className="sign"></td>
+              <td className="lbl">검토</td>
+              <td className="sign"></td>
+              <td className="lbl">승인</td>
+              <td className="sign"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
