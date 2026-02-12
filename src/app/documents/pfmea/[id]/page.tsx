@@ -47,6 +47,11 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
   const [aiReviewing, setAiReviewing] = useState(false);
   const [aiReviewingLineId, setAiReviewingLineId] = useState<string | null>(null);
 
+  // AI 전체 리뷰 패널
+  const [isFullReviewing, setIsFullReviewing] = useState(false);
+  const [fullReviewResult, setFullReviewResult] = useState<{ overall_score: number; findings: { type: string; target: string; message: string }[]; summary: string } | null>(null);
+  const [showReviewPanel, setShowReviewPanel] = useState(false);
+
   useEffect(() => {
     setMounted(true);
     if (pfmeaId) {
@@ -281,6 +286,60 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
     }, 100);
   };
 
+  // ========== AI 전체 리뷰 (API) ==========
+  const handleFullReview = async () => {
+    if (lines.length === 0) {
+      alert('검토할 PFMEA 항목이 없습니다.');
+      return;
+    }
+    setIsFullReviewing(true);
+    setShowReviewPanel(true);
+    setFullReviewResult(null);
+    try {
+      // 특성명 매핑
+      const charMap = new Map<string, string>();
+      for (const c of characteristics) {
+        charMap.set(c.id, c.name);
+      }
+
+      const payload = {
+        product_name: product?.name || '제품',
+        process_name: pfmea?.process_name || '공정',
+        lines: lines.map((l) => ({
+          process_step: l.process_step,
+          characteristic_name: l.characteristic_id ? (charMap.get(l.characteristic_id) || '-') : '-',
+          potential_failure_mode: l.potential_failure_mode,
+          potential_effect: l.potential_effect,
+          severity: l.severity,
+          potential_cause: l.potential_cause,
+          occurrence: l.occurrence,
+          current_control_prevention: l.current_control_prevention || '',
+          current_control_detection: l.current_control_detection || '',
+          detection: l.detection,
+          rpn: l.rpn,
+          action_priority: l.action_priority || '',
+          recommended_action: l.recommended_action || '',
+        })),
+      };
+
+      const res = await fetch('/api/review/pfmea', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success && data.review) {
+        setFullReviewResult(data.review);
+      } else {
+        alert('AI 리뷰 실패: ' + (data.error || '알 수 없는 오류'));
+      }
+    } catch (err) {
+      console.error('Full review error:', err);
+      alert('AI 리뷰 요청 실패: ' + (err instanceof Error ? err.message : '네트워크 오류'));
+    }
+    setIsFullReviewing(false);
+  };
+
   // ========== 유틸 ==========
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -488,6 +547,28 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
                 </svg>
                 PDF 다운로드
               </button>
+
+              {lines.length > 0 && (
+                <button
+                  onClick={handleFullReview}
+                  disabled={isFullReviewing}
+                  className="px-4 py-2 bg-gradient-to-r from-violet-100 to-purple-100 text-violet-700 hover:from-violet-200 hover:to-purple-200 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 border border-violet-200"
+                >
+                  {isFullReviewing ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-violet-300 border-t-violet-700 animate-spin" />
+                      AI 분석 중...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      AI 전체 리뷰
+                    </>
+                  )}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -591,6 +672,103 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
             <div className="text-2xl font-bold text-purple-600">{unreviewedCount}</div>
           </div>
         </div>
+
+        {/* ===== AI 전체 리뷰 패널 ===== */}
+        {showReviewPanel && (
+          <div className="no-print bg-white/90 backdrop-blur-md border-2 border-violet-200 rounded-2xl shadow-lg mb-6 overflow-hidden">
+            <div className="px-6 py-4 border-b border-violet-100 bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                AI PFMEA 리뷰
+              </h3>
+              <button onClick={() => setShowReviewPanel(false)} className="text-white/80 hover:text-white transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {isFullReviewing && !fullReviewResult && (
+              <div className="p-12 text-center">
+                <div className="w-12 h-12 rounded-full border-2 border-violet-200 border-t-violet-600 animate-spin mx-auto mb-4" />
+                <p className="text-gray-600 font-medium">PFMEA 전체 항목을 AI가 분석하고 있습니다...</p>
+                <p className="text-sm text-gray-400 mt-1">IATF 16949 기준으로 S/O/D, 관리방안, 누락 항목을 검토합니다</p>
+              </div>
+            )}
+
+            {fullReviewResult && (
+              <div className="p-6">
+                {/* 점수 */}
+                <div className="flex items-center gap-6 mb-6">
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white ${
+                    fullReviewResult.overall_score >= 80 ? 'bg-green-500' :
+                    fullReviewResult.overall_score >= 60 ? 'bg-yellow-500' :
+                    'bg-red-500'
+                  }`}>
+                    {fullReviewResult.overall_score}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-lg font-bold text-gray-900">
+                      {fullReviewResult.overall_score >= 80 ? '양호' :
+                       fullReviewResult.overall_score >= 60 ? '개선 필요' : '주의 필요'}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">{fullReviewResult.summary}</p>
+                  </div>
+                </div>
+
+                {/* 발견사항 */}
+                {fullReviewResult.findings.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide">발견사항 ({fullReviewResult.findings.length}건)</h4>
+                    {fullReviewResult.findings.map((finding, i) => (
+                      <div key={i} className={`p-4 rounded-xl border ${
+                        finding.type === 'warning' ? 'bg-red-50 border-red-200' :
+                        finding.type === 'missing' ? 'bg-orange-50 border-orange-200' :
+                        'bg-blue-50 border-blue-200'
+                      }`}>
+                        <div className="flex items-start gap-3">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0 ${
+                            finding.type === 'warning' ? 'bg-red-500' :
+                            finding.type === 'missing' ? 'bg-orange-500' :
+                            'bg-blue-500'
+                          }`}>
+                            {finding.type === 'warning' ? '!' : finding.type === 'missing' ? '?' : 'i'}
+                          </span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-xs font-bold uppercase ${
+                                finding.type === 'warning' ? 'text-red-600' :
+                                finding.type === 'missing' ? 'text-orange-600' :
+                                'text-blue-600'
+                              }`}>
+                                {finding.type === 'warning' ? '경고' : finding.type === 'missing' ? '누락' : '개선'}
+                              </span>
+                              <span className="text-xs font-medium text-gray-500">{finding.target}</span>
+                            </div>
+                            <p className="text-sm text-gray-800">{finding.message}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {fullReviewResult.findings.length === 0 && (
+                  <div className="text-center py-6">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
+                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-600 font-medium">특이사항이 발견되지 않았습니다.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ===== 5. PFMEA 테이블 ===== */}
         <div className="bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl shadow-sm overflow-hidden">
