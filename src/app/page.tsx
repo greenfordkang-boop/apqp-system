@@ -72,7 +72,7 @@ export default function Dashboard() {
                 />
               </svg>
             </div>
-            <span className="font-semibold text-[var(--text-primary)]">APQP System</span>
+            <span className="font-semibold text-[var(--text-primary)]">신성오토텍(주)</span>
           </div>
           <div className="flex items-center gap-6">
             <NavLink href="/products">제품</NavLink>
@@ -86,9 +86,9 @@ export default function Dashboard() {
       <header className="pt-32 pb-16 px-6 text-center hero-gradient">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-[var(--text-primary)] mb-4">
-            품질문서 관리의
+            신성오토텍(주)
             <br />
-            <span className="text-gradient">새로운 기준</span>
+            <span className="text-gradient">품질문서관리 시스템</span>
           </h1>
           <p className="text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-8">
             APQP 프로세스를 혁신하세요. 특성 등록부터 검사기준서까지,
@@ -319,7 +319,7 @@ export default function Dashboard() {
                 </svg>
               </div>
               <span className="text-sm font-medium text-[var(--text-secondary)]">
-                APQP Quality System
+                신성오토텍(주) 품질문서관리 시스템
               </span>
             </div>
             <div className="flex items-center gap-6 text-sm text-[var(--text-tertiary)]">

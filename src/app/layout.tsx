@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "APQP 품질문서 관리시스템",
-  description: "Advanced Product Quality Planning System - IATF 16949 Compliant",
+  title: "신성오토텍(주) 품질문서관리 시스템",
+  description: "신성오토텍 APQP 품질문서관리 시스템 - IATF 16949 Compliant",
 };
 
 export default function RootLayout({
