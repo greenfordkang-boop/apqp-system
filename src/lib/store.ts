@@ -459,6 +459,39 @@ export const controlPlanStore = {
     const { data } = await supabase.from('control_plans').update({ status }).eq('id', id).select().single();
     return data ?? null;
   },
+
+  duplicate: async (sourceCpId: string, targetProductId: string): Promise<ControlPlan> => {
+    const sourceItems = await controlPlanStore.getItems(sourceCpId);
+    const targetProduct = await productStore.getById(targetProductId);
+
+    const newPlan = await controlPlanStore.create({
+      pfmea_id: '',
+      product_id: targetProductId,
+      name: `${targetProduct?.name || ''} 관리계획서`,
+      doc_number: '',
+      author: '',
+    });
+
+    for (const item of sourceItems) {
+      await controlPlanStore.createItem({
+        control_plan_id: newPlan.id,
+        pfmea_line_id: '',
+        characteristic_id: '',
+        process_number: item.process_number,
+        process_step: item.process_step,
+        machine_device: item.machine_device,
+        characteristic_name: item.characteristic_name,
+        control_type: item.control_type,
+        control_method: item.control_method,
+        sample_size: item.sample_size,
+        frequency: item.frequency,
+        reaction_plan: item.reaction_plan,
+        responsible: item.responsible,
+      });
+    }
+
+    return newPlan;
+  },
 };
 
 // ============ SOP ============

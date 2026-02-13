@@ -2,8 +2,9 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { controlPlanStore, characteristicStore, productStore, pfmeaStore } from '@/lib/store';
-import type { ControlPlan, ControlPlanItem, Characteristic } from '@/lib/store';
+import type { ControlPlan, ControlPlanItem, Characteristic, Product } from '@/lib/store';
 
 interface EditingLine extends ControlPlanItem {
   isEditing?: boolean;
@@ -15,10 +16,15 @@ export default function ControlPlanViewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: cpId } = use(params);
+  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [copying, setCopying] = useState(false);
   const [controlPlan, setControlPlan] = useState<ControlPlan | null>(null);
   const [lines, setLines] = useState<EditingLine[]>([]);
   const [product, setProduct] = useState<any>(null);
@@ -177,6 +183,34 @@ export default function ControlPlanViewPage({
       console.error('Error saving all:', err);
     }
     setSaving(false);
+  };
+
+  const handleOpenCopyModal = async () => {
+    setShowCopyModal(true);
+    setSelectedProductId('');
+    try {
+      const products = await productStore.getAll();
+      setAllProducts(products.filter(p => p.id !== product?.id));
+    } catch (err) {
+      console.error('Error loading products:', err);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!selectedProductId) {
+      alert('복사할 대상 제품을 선택하세요.');
+      return;
+    }
+    setCopying(true);
+    try {
+      const newPlan = await controlPlanStore.duplicate(cpId, selectedProductId);
+      setShowCopyModal(false);
+      router.push(`/documents/control-plan/${newPlan.id}`);
+    } catch (err) {
+      console.error('Error copying:', err);
+      alert('복사 실패: ' + (err instanceof Error ? err.message : '알 수 없는 오류'));
+    }
+    setCopying(false);
   };
 
   const handleStatusChange = async (newStatus: 'draft' | 'review' | 'approved') => {
@@ -518,6 +552,14 @@ export default function ControlPlanViewPage({
                 </svg>
                 PDF 다운로드
               </button>
+              {lines.length > 0 && (
+                <button onClick={handleOpenCopyModal} className="px-4 py-2 bg-teal-100 text-teal-700 hover:bg-teal-200 rounded-lg font-medium transition-all flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                  </svg>
+                  다른 Part No로 복사
+                </button>
+              )}
             </>
           )}
         </div>
@@ -713,6 +755,62 @@ export default function ControlPlanViewPage({
           </>
         );
       })()}
+
+      {/* ===== Copy Modal ===== */}
+      {showCopyModal && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowCopyModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-teal-600 to-cyan-600">
+                <h3 className="text-lg font-bold text-white">관리계획서 복사</h3>
+                <p className="text-sm text-teal-100 mt-1">현재 관리 항목 {lines.length}건을 다른 제품으로 복사합니다</p>
+              </div>
+              <div className="p-6">
+                <div className="mb-4">
+                  <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                    <p className="text-xs text-gray-500">현재 제품</p>
+                    <p className="text-sm font-semibold text-gray-900">{product?.name} ({product?.part_number || product?.code})</p>
+                  </div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">복사할 대상 제품 선택</label>
+                  {allProducts.length === 0 ? (
+                    <p className="text-sm text-gray-500">다른 등록된 제품이 없습니다. 먼저 제품을 등록해주세요.</p>
+                  ) : (
+                    <select
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    >
+                      <option value="">제품을 선택하세요</option>
+                      {allProducts.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} {p.part_number ? `(${p.part_number})` : p.code ? `(${p.code})` : ''} {p.customer ? `- ${p.customer}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                {selectedProductId && (
+                  <div className="bg-teal-50 rounded-lg p-3 mb-4">
+                    <p className="text-xs text-teal-600 font-medium">복사 내용</p>
+                    <ul className="text-xs text-teal-800 mt-1 space-y-0.5">
+                      <li>• 관리 항목 {lines.length}건 (공정, 설비, 관리방법, 샘플, 대응계획 등)</li>
+                      <li>• 새 관리계획서가 초안 상태로 생성됩니다</li>
+                      <li>• 기본정보(제품명, Part No 등)는 선택한 제품으로 변경됩니다</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                <button onClick={() => setShowCopyModal(false)} className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all">취소</button>
+                <button onClick={handleCopy} disabled={!selectedProductId || copying} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-all disabled:opacity-50">
+                  {copying ? '복사 중...' : '복사 생성'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ===== Print Layout - 관리계획서 표준양식 (AIAG APQP) ===== */}
       <div className="cp-print hidden">
