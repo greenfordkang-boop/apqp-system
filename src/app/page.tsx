@@ -22,6 +22,7 @@ export default function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
+  const [showStandard, setShowStandard] = useState(false);
 
   useEffect(() => {
     statsStore
@@ -67,6 +68,12 @@ export default function Dashboard() {
             <NavItem href="/products">제품</NavItem>
             <NavItem href="/documents">문서</NavItem>
             <NavItem href="/documents/generate">생성</NavItem>
+            <button
+              onClick={() => setShowStandard(true)}
+              className="text-[12px] text-[var(--accent-blue)] hover:text-blue-700 transition-colors font-medium"
+            >
+              문서작성기준
+            </button>
             <button
               onClick={() => setShowGuide(true)}
               className="text-[12px] text-[var(--accent-blue)] hover:text-blue-700 transition-colors font-medium"
@@ -174,6 +181,129 @@ export default function Dashboard() {
           <span className="text-[12px] text-[var(--text-tertiary)]">IATF 16949 Compliant</span>
         </div>
       </footer>
+
+      {/* Standard Modal */}
+      {showStandard && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setShowStandard(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl max-w-[640px] w-full max-h-[85vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white rounded-t-2xl border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-[17px] font-bold text-gray-900">문서작성기준</h2>
+              <button
+                onClick={() => setShowStandard(false)}
+                className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+              >
+                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-6">
+              <p className="text-[13px] text-gray-500 leading-relaxed">
+                IATF 16949 및 AIAG 매뉴얼 기반 APQP 문서 작성 기준입니다. 모든 문서는 특성(Characteristic)을 기초로 하며, 문서 간 추적성이 보장되어야 합니다.
+              </p>
+
+              {/* 특성 등록 기준 */}
+              <StandardSection
+                num="01"
+                title="특성 등록 기준"
+                color="bg-slate-600"
+                items={[
+                  { label: '특성 분류', desc: '제품특성(Product)과 공정특성(Process)을 구분하여 등록' },
+                  { label: '중요도', desc: 'Critical(CC) / Significant(SC) / Standard(일반) 3단계 분류' },
+                  { label: '규격', desc: 'LSL(하한) ~ USL(상한), 단위(mm, N, ℃ 등) 반드시 명시' },
+                  { label: '측정방법', desc: '사용 측정기, 게이지, 검사 장비 등 구체적 기재' },
+                ]}
+              />
+
+              {/* PFMEA */}
+              <StandardSection
+                num="02"
+                title="PFMEA (공정 잠재 고장모드 영향분석)"
+                color="bg-blue-600"
+                items={[
+                  { label: '고장모드', desc: '각 특성이 규격을 벗어날 수 있는 모든 잠재적 고장 형태 도출' },
+                  { label: '영향(Effect)', desc: '고장 발생 시 고객/후공정에 미치는 영향 기술' },
+                  { label: 'RPN 산출', desc: '심각도(S) x 발생도(O) x 검출도(D) = RPN, 100 이상 시 조치 필수' },
+                  { label: '권고조치', desc: 'RPN 감소를 위한 개선 대책 수립 (발생도·검출도 중심)' },
+                ]}
+                note="AIAG-VDA PFMEA 1st Edition 기준. AP(Action Priority) 방식 병행 가능"
+              />
+
+              {/* Control Plan */}
+              <StandardSection
+                num="03"
+                title="관리계획서 (Control Plan)"
+                color="bg-emerald-600"
+                items={[
+                  { label: '관리항목', desc: 'PFMEA의 특성을 1:1로 연결, 모든 CC/SC 항목 포함 필수' },
+                  { label: '관리방법', desc: '관리유형(예방/검출), 구체적 관리 수단 명시' },
+                  { label: '시료크기/주기', desc: '샘플링 수량과 검사 빈도 (예: 5ea/2시간)' },
+                  { label: '이상 시 조치', desc: '규격 이탈 시 격리→재검→원인분석 순서의 대응 절차' },
+                ]}
+                note="Prototype / Pre-launch / Production 단계별 작성 권장"
+              />
+
+              {/* SOP */}
+              <StandardSection
+                num="04"
+                title="작업표준서 (SOP / Work Instruction)"
+                color="bg-violet-600"
+                items={[
+                  { label: '작업순서', desc: 'CP의 공정 단계별 구체적 작업 절차를 순번으로 기술' },
+                  { label: '핵심 포인트', desc: '품질/안전에 영향을 주는 주의사항, 관리 포인트 강조' },
+                  { label: '설비/도구', desc: '작업에 필요한 장비, 치공구, 보조재료 등 명시' },
+                  { label: '이상처리', desc: '이상 발생 시 작업자 대응 절차 (정지→보고→격리)' },
+                ]}
+                note="작업자가 현장에서 바로 이해할 수 있도록 간결하게 작성"
+              />
+
+              {/* 검사기준서 */}
+              <StandardSection
+                num="05"
+                title="검사기준서 (Inspection Standard)"
+                color="bg-amber-600"
+                items={[
+                  { label: '검사항목', desc: 'CP의 관리항목과 1:1 연결, 검사 명칭 명시' },
+                  { label: '합격기준', desc: '정량화 필수 — 치수: LSL~USL, 외관: 한도견본 기준' },
+                  { label: '샘플링', desc: 'CP의 시료크기/주기를 그대로 반영' },
+                  { label: 'NG 처리', desc: '① 격리(NG BOX) ② 재검(3회 중 2회 합격 시 Pass) ③ 연속 NG 시 라인 정지 및 4M 분석' },
+                ]}
+                note="수입검사 / 공정검사 / 출하검사 구분 적용 가능"
+              />
+
+              {/* 추적성 기준 */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-3">추적성 (Traceability) 요건</p>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="text-[12px] text-emerald-600 mt-0.5 shrink-0">●</span>
+                    <p className="text-[12px] text-gray-700">모든 특성은 PFMEA → CP → SOP → 검사기준서로 빠짐없이 연결</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-[12px] text-emerald-600 mt-0.5 shrink-0">●</span>
+                    <p className="text-[12px] text-gray-700">CC/SC 특성은 4개 문서 모두 필수, 일반 특성도 CP 이상 연결 권장</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-[12px] text-emerald-600 mt-0.5 shrink-0">●</span>
+                    <p className="text-[12px] text-gray-700">추적성 매트릭스에서 누락 항목 확인 → AI 보완으로 자동 생성 가능</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
+              <p className="text-[11px] text-gray-400 text-center">
+                IATF 16949 · AIAG APQP 2nd Edition · AIAG-VDA FMEA 1st Edition 기준
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Guide Modal */}
       {showGuide && (
@@ -324,6 +454,44 @@ function ActionCard({
         <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">{description}</p>
       </div>
     </Link>
+  );
+}
+
+function StandardSection({
+  num,
+  title,
+  color,
+  items,
+  note,
+}: {
+  num: string;
+  title: string;
+  color: string;
+  items: { label: string; desc: string }[];
+  note?: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-3">
+        <span className={`w-7 h-7 rounded-full ${color} text-white text-[11px] font-bold flex items-center justify-center shrink-0`}>
+          {num}
+        </span>
+        <h3 className="text-[15px] font-semibold text-gray-900">{title}</h3>
+      </div>
+      <div className="ml-10 space-y-2">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-start gap-2">
+            <span className="text-[12px] font-semibold text-gray-700 shrink-0 min-w-[72px]">{item.label}</span>
+            <p className="text-[12px] text-gray-600 leading-relaxed">{item.desc}</p>
+          </div>
+        ))}
+        {note && (
+          <p className="text-[11px] text-blue-600 mt-2 bg-blue-50 rounded-lg px-3 py-1.5 inline-block">
+            {note}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
