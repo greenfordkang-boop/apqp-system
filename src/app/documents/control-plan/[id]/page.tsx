@@ -295,28 +295,45 @@ export default function ControlPlanViewPage({
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <style>{`
         @media print {
-          *, *::before, *::after { background: transparent !important; color: #000 !important; box-shadow: none !important; text-shadow: none !important; }
-          body { margin: 0; padding: 0; }
-          @page { size: A4 landscape; margin: 6mm; }
+          *, *::before, *::after { box-shadow: none !important; text-shadow: none !important; }
+          body { margin: 0; padding: 0; background: white !important; color: #000 !important; }
+          @page { size: A4 landscape; margin: 5mm 6mm; }
           .cp-screen { display: none !important; }
-          .cp-print { display: block !important; padding: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
-          .cp-title { text-align: center; margin-bottom: 6px; }
-          .cp-title h1 { font-size: 14pt; font-weight: bold; margin: 0; }
-          .cp-title p { font-size: 8pt; margin: 2px 0 0; }
-          .cp-header { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
-          .cp-header td { border: 1px solid #000; padding: 2px 4px; font-size: 7pt; }
-          .cp-header .lbl { font-weight: bold; white-space: nowrap; }
+          .cp-print { display: block !important; padding: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #000; }
+
+          /* 제목 */
+          .cp-title { text-align: center; margin-bottom: 4px; border-bottom: 2px solid #000; padding-bottom: 4px; }
+          .cp-title h1 { font-size: 16pt; font-weight: bold; margin: 0; }
+
+          /* 적용범위 */
+          .cp-scope { margin: 4px 0; font-size: 7pt; }
+          .cp-scope b { font-size: 7.5pt; }
+          .cp-scope-en { font-size: 6pt; color: #444 !important; margin-top: 1px; font-style: italic; }
+
+          /* 문서 헤더 정보 테이블 */
+          .cp-info { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+          .cp-info td { border: 1px solid #000; padding: 2px 4px; font-size: 7pt; vertical-align: top; }
+          .cp-info .lbl { font-weight: bold; white-space: nowrap; width: 9%; font-size: 6.5pt; }
+          .cp-info .lbl span { font-weight: normal; font-size: 5.5pt; color: #444 !important; }
+          .cp-info .val { width: 14%; font-size: 7pt; }
+          .cp-info .cp-chk { width: 10%; font-size: 6.5pt; padding: 3px 5px; vertical-align: middle; }
+          .cp-info .cp-chk div { margin: 1px 0; }
+          .cp-info .cp-date-block { width: 12%; font-size: 6pt; padding: 3px 5px; text-align: left; }
+          .cp-info .cp-date-block span { font-size: 5pt; color: #444 !important; }
+          .cp-info .cp-date-title { font-weight: bold; font-size: 7pt; margin-bottom: 2px; text-align: center; }
+          .cp-info .cp-date-val { font-weight: bold; font-size: 7.5pt; margin: 1px 0 3px; }
+
+          /* 섹션 2 */
+          .cp-section2 { margin: 4px 0; font-size: 7pt; }
+          .cp-section2 b { font-size: 7.5pt; }
+
+          /* 메인 데이터 테이블 */
           .cp-body { width: 100%; border-collapse: collapse; }
-          .cp-body th { border: 1px solid #000; padding: 2px; font-size: 6.5pt; font-weight: bold; text-align: center; vertical-align: middle; line-height: 1.3; }
+          .cp-body th { border: 1px solid #000; padding: 1px 2px; font-size: 6pt; font-weight: bold; text-align: center; vertical-align: middle; line-height: 1.2; background: #e8e8e8 !important; }
+          .cp-body th span { font-weight: normal; font-size: 5pt; color: #444 !important; display: block; }
           .cp-body td { border: 1px solid #000; padding: 1px 2px; font-size: 6.5pt; vertical-align: top; word-break: break-word; }
-          .cp-body tbody tr { height: 24px; }
+          .cp-body tbody tr { height: 22px; }
           .cp-body .c { text-align: center; vertical-align: middle; }
-          .cp-notes { margin-top: 3px; font-size: 6.5pt; }
-          .cp-notes p { margin: 1px 0; }
-          .cp-approval { margin-top: 10px; border-collapse: collapse; }
-          .cp-approval td { border: 1px solid #000; padding: 3px 10px; font-size: 7pt; text-align: center; }
-          .cp-approval .lbl { font-weight: bold; }
-          .cp-approval .sign { width: 70px; height: 35px; }
           table { page-break-inside: auto; }
           tr { page-break-inside: avoid; }
         }
@@ -683,76 +700,104 @@ export default function ControlPlanViewPage({
         </div>
       </main>
 
-      {/* ===== Print Layout - 관리계획서 IATF 16949 양식 ===== */}
+      {/* ===== Print Layout - 관리계획서 표준양식 (AIAG APQP) ===== */}
       <div className="cp-print hidden">
+        {/* 제목 */}
         <div className="cp-title">
           <h1>관리계획서 (Control Plan)</h1>
-          <p>IATF 16949 / APQP 기준</p>
         </div>
 
-        <table className="cp-header">
+        {/* 1. 적용범위 */}
+        <div className="cp-scope">
+          <p><b>1. 적용범위(Scope) :</b> 제조공정의 시작부터 끝까지의 전체 공정 (AIAG APQP의 양식 및 참고 매뉴얼을 기반으로 작성)</p>
+          <p className="cp-scope-en">Processes involved in the manufacturing process from start to finish (Prepared by AIAG APQP form and Reference Manual as a basis)</p>
+        </div>
+
+        {/* 문서 헤더 정보 */}
+        <table className="cp-info">
           <tbody>
             <tr>
-              <td className="lbl">관리계획서 No.</td>
-              <td>{controlPlan.doc_number || '-'}</td>
-              <td className="lbl">작성일</td>
-              <td>{new Date(controlPlan.created_at).toLocaleDateString('ko-KR')}</td>
-              <td className="lbl">개정일</td>
-              <td>{new Date(controlPlan.updated_at).toLocaleDateString('ko-KR')}</td>
-              <td className="lbl">Rev.</td>
-              <td>{controlPlan.revision}</td>
+              {/* 좌측: 체크박스 */}
+              <td rowSpan={4} className="cp-chk">
+                <div>☐ 시작품(Proto)</div>
+                <div>☐ 양산선행(Pre Launch)</div>
+                <div><b>☑ 양산(Mass Production)</b></div>
+                <div>☐ 안전출시(Safe launching)</div>
+              </td>
+              <td className="lbl">1) 협력서명<br/><span>Supplier Name</span></td>
+              <td className="val">신성오토텍(주)</td>
+              <td className="lbl">2) 작성팀<br/><span>Organization</span></td>
+              <td className="val"></td>
+              <td rowSpan={4} className="cp-date-block">
+                <div className="cp-date-title">개발팀</div>
+                <div>■ 최초 작성일<br/><span>Date(Org.)</span></div>
+                <div className="cp-date-val">{new Date(controlPlan.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '')}</div>
+                <div>■ 최종 개정일 (Rev<br/><span>No)</span></div>
+                <div className="cp-date-val">{new Date(controlPlan.updated_at).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '')}</div>
+              </td>
             </tr>
             <tr>
-              <td className="lbl">부품번호 / Part No.</td>
-              <td>{product?.part_number || product?.code || '-'}</td>
-              <td className="lbl">부품명 / Part Name</td>
-              <td>{product?.name || '-'}</td>
-              <td className="lbl">공급자 / Supplier</td>
-              <td>신성오토텍(주)</td>
-              <td className="lbl">Page</td>
-              <td>1 / 1</td>
+              <td className="lbl">3) 작성자<br/><span>Prepared by</span></td>
+              <td className="val">{controlPlan.author || pfmea?.author || ''}</td>
+              <td className="lbl">4) 부품명<br/><span>Part Name</span></td>
+              <td className="val">{product?.name || ''}</td>
             </tr>
             <tr>
-              <td className="lbl">고객 / Customer</td>
-              <td>{product?.customer || '-'}</td>
-              <td className="lbl">공장 / Plant</td>
-              <td>-</td>
-              <td className="lbl">승인일 / Approval</td>
-              <td>{controlPlan.status === 'approved' ? new Date(controlPlan.updated_at).toLocaleDateString('ko-KR') : '-'}</td>
-              <td className="lbl">단계</td>
-              <td>☐시작  ☑양산</td>
+              <td className="lbl">5) 부품번호<br/><span>Part Number</span></td>
+              <td className="val">{product?.part_number || product?.code || ''}</td>
+              <td className="lbl">6) 설계 변경 수준<br/><span>Engineering Change Level</span></td>
+              <td className="val"></td>
+            </tr>
+            <tr>
+              <td className="lbl">4) 핵심팀<br/><span>Core Team</span></td>
+              <td className="val" colSpan={2}></td>
+              <td className="lbl">Dwg. Revision :</td>
+              <td className="val">{controlPlan.revision}.0</td>
             </tr>
           </tbody>
         </table>
 
+        {/* 2. 공정흐름도 설명 */}
+        <div className="cp-section2">
+          <p><b>2. 공정흐름도 및 공정 FMEA 연계성을 고려하여 작성.</b> (해당 시 Rework/Repair 포함)</p>
+          <p className="cp-scope-en">Process Flow Diagrams in association with Process FMEA. (If applicable, include Rework/Repair )</p>
+        </div>
+
+        {/* 메인 데이터 테이블 */}
         <table className="cp-body">
           <thead>
             <tr>
-              <th style={{width:'2.5%'}}>No.</th>
-              <th style={{width:'4%'}}>공정<br/>번호</th>
-              <th style={{width:'8%'}}>공정명<br/>Process<br/>Name</th>
-              <th style={{width:'6%'}}>설비<br/>Machine/<br/>Device</th>
-              <th style={{width:'9%'}}>제품특성<br/>Product<br/>Characteristic</th>
-              <th style={{width:'9%'}}>공정특성<br/>Process<br/>Characteristic</th>
-              <th style={{width:'3.5%'}}>특별<br/>특성<br/>Class</th>
-              <th style={{width:'10%'}}>규격/공차<br/>Spec/<br/>Tolerance</th>
-              <th style={{width:'9%'}}>평가/측정<br/>기법<br/>Eval/Meas.<br/>Technique</th>
-              <th style={{width:'5%'}}>샘플<br/>크기<br/>Sample<br/>Size</th>
-              <th style={{width:'5%'}}>샘플<br/>주기<br/>Sample<br/>Freq.</th>
-              <th style={{width:'10%'}}>관리방법<br/>Control<br/>Method</th>
-              <th style={{width:'10%'}}>대응계획<br/>Reaction<br/>Plan</th>
-              <th style={{width:'5%'}}>비고<br/>Remarks</th>
+              <th rowSpan={2} style={{width:'5%'}}>부품/공정<br/>번호<br/><span>Part/Proces</span><br/><span>s Number</span></th>
+              <th rowSpan={2} style={{width:'8%'}}>공정명 / 작업설명<br/><span>Process</span><br/><span>Name/Description</span></th>
+              <th rowSpan={2} style={{width:'7%'}}>제조를 위한 기계,<br/>장치, 지그, 공구<br/><span>Device, Jig,</span><br/><span>Machine, Tools for</span></th>
+              <th colSpan={3}>특성 Characteristics</th>
+              <th rowSpan={2} style={{width:'4%'}}>특별특성<br/>분류<br/><span>Special</span><br/><span>Characteris</span><br/><span>tic</span></th>
+              <th rowSpan={2} style={{width:'14%'}}>제품 / 공정, 시방 / 공차<br/><span>Product/Process, Specification/Tolerance</span></th>
+              <th colSpan={3}>방법 Method</th>
+              <th colSpan={3}>대응계획 Reaction Plan</th>
+            </tr>
+            <tr>
+              <th style={{width:'3%'}}>번호<br/><span>No.</span></th>
+              <th style={{width:'7%'}}>제품<br/><span>Product</span></th>
+              <th style={{width:'6%'}}>공정<br/><span>Process</span></th>
+              <th style={{width:'8%'}}>평가 / 측정방법<br/><span>Evaluation/Measure</span><br/><span>method/Method</span></th>
+              <th style={{width:'4%'}}>크기<br/><span>Size</span></th>
+              <th style={{width:'4%'}}>주기<br/><span>Frequency</span></th>
+              <th style={{width:'8%'}}>관리방법<br/><span>Control Method</span></th>
+              <th style={{width:'6%'}}>조치<br/><span>Action</span></th>
+              <th style={{width:'5%'}}>책임자<br/><span>Owner /</span><br/><span>Responsible</span></th>
             </tr>
           </thead>
           <tbody>
             {lines.map((line, idx) => {
               const char = getChar(line.characteristic_id);
+              const processNo = `I-${(idx + 1) * 10}`;
               return (
                 <tr key={line.id}>
-                  <td className="c">{idx + 1}</td>
-                  <td className="c">{idx + 1}0</td>
+                  <td className="c">{processNo}</td>
                   <td>{line.process_step}</td>
                   <td></td>
+                  <td className="c">{idx + 1}</td>
                   <td>{char?.type === 'product' ? (char.name || line.characteristic_name) : ''}</td>
                   <td>{char?.type === 'process' ? (char.name || line.characteristic_name) : (!char ? line.characteristic_name : '')}</td>
                   <td className="c">{getCharClass(line.characteristic_id)}</td>
@@ -766,24 +811,6 @@ export default function ControlPlanViewPage({
                 </tr>
               );
             })}
-          </tbody>
-        </table>
-
-        <div className="cp-notes">
-          <p>※ 특별특성 분류: CC(Critical Characteristic) / SC(Safety Characteristic) / 공란(일반특성)</p>
-          <p>※ 본 양식은 IATF 16949 및 APQP 2nd Edition 기준으로 작성됨</p>
-        </div>
-
-        <table className="cp-approval">
-          <tbody>
-            <tr>
-              <td className="lbl">작성</td>
-              <td className="sign"></td>
-              <td className="lbl">검토</td>
-              <td className="sign"></td>
-              <td className="lbl">승인</td>
-              <td className="sign"></td>
-            </tr>
           </tbody>
         </table>
       </div>
