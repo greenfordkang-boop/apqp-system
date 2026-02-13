@@ -284,8 +284,13 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
 
   const handlePdfDownload = () => {
     setIsPrinting(true);
+    const prevTitle = document.title;
+    const date = new Date(pfmea!.created_at).toISOString().slice(0, 10).replace(/-/g, '');
+    const parts = ['PFMEA', product?.customer, product?.vehicle_model, product?.name, product?.part_number || product?.code, date].filter(Boolean);
+    document.title = parts.join('_');
     setTimeout(() => {
       window.print();
+      document.title = prevTitle;
       setIsPrinting(false);
     }, 100);
   };

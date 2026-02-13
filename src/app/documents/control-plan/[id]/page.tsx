@@ -165,7 +165,12 @@ export default function ControlPlanViewPage({
   };
 
   const handlePrint = () => {
+    const prevTitle = document.title;
+    const date = controlPlan ? new Date(controlPlan.created_at).toISOString().slice(0, 10).replace(/-/g, '') : '';
+    const parts = ['CP', product?.customer, product?.vehicle_model, product?.name, product?.part_number || product?.code, date].filter(Boolean);
+    document.title = parts.join('_');
     window.print();
+    document.title = prevTitle;
   };
 
   const getStatusBadge = (status: 'draft' | 'review' | 'approved') => {
