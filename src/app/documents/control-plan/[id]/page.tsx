@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { controlPlanStore, characteristicStore, productStore, pfmeaStore } from '@/lib/store';
-import type { ControlPlan, ControlPlanItem } from '@/lib/store';
+import type { ControlPlan, ControlPlanItem, Characteristic } from '@/lib/store';
 
 interface EditingLine extends ControlPlanItem {
   isEditing?: boolean;
@@ -23,6 +23,7 @@ export default function ControlPlanViewPage({
   const [lines, setLines] = useState<EditingLine[]>([]);
   const [product, setProduct] = useState<any>(null);
   const [pfmea, setPfmea] = useState<any>(null);
+  const [characteristics, setCharacteristics] = useState<Characteristic[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -50,6 +51,8 @@ export default function ControlPlanViewPage({
         const productData = await productStore.getById(pfmeaData.product_id);
         if (productData) {
           setProduct(productData);
+          const chars = await characteristicStore.getByProductId(productData.id);
+          setCharacteristics(chars);
         }
       }
 
@@ -253,10 +256,69 @@ export default function ControlPlanViewPage({
 
   const canEdit = controlPlan.status !== 'approved';
 
+  // 특성 조회 헬퍼
+  const getChar = (charId: string | null): Characteristic | undefined => {
+    if (!charId) return undefined;
+    return characteristics.find(c => c.id === charId);
+  };
+
+  const getCharClass = (charId: string | null): string => {
+    const c = getChar(charId);
+    if (!c) return '';
+    if (c.category === 'critical') return 'CC';
+    if (c.category === 'major') return 'SC';
+    return '';
+  };
+
+  const getSpecText = (charId: string | null): string => {
+    const c = getChar(charId);
+    if (!c) return '';
+    const parts: string[] = [];
+    if (c.specification) parts.push(c.specification);
+    if (c.lsl !== null && c.usl !== null) {
+      parts.push(`${c.lsl} ~ ${c.usl}`);
+    } else if (c.lsl !== null) {
+      parts.push(`≥ ${c.lsl}`);
+    } else if (c.usl !== null) {
+      parts.push(`≤ ${c.usl}`);
+    }
+    if (c.unit) parts.push(c.unit);
+    return parts.join(' ');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <style>{`
+        @media print {
+          *, *::before, *::after { background: transparent !important; color: #000 !important; box-shadow: none !important; text-shadow: none !important; }
+          body { margin: 0; padding: 0; }
+          @page { size: A4 landscape; margin: 6mm; }
+          .cp-screen { display: none !important; }
+          .cp-print { display: block !important; padding: 0; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+          .cp-title { text-align: center; margin-bottom: 6px; }
+          .cp-title h1 { font-size: 14pt; font-weight: bold; margin: 0; }
+          .cp-title p { font-size: 8pt; margin: 2px 0 0; }
+          .cp-header { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+          .cp-header td { border: 1px solid #000; padding: 2px 4px; font-size: 7pt; }
+          .cp-header .lbl { font-weight: bold; white-space: nowrap; }
+          .cp-body { width: 100%; border-collapse: collapse; }
+          .cp-body th { border: 1px solid #000; padding: 2px; font-size: 6.5pt; font-weight: bold; text-align: center; vertical-align: middle; line-height: 1.3; }
+          .cp-body td { border: 1px solid #000; padding: 1px 2px; font-size: 6.5pt; vertical-align: top; word-break: break-word; }
+          .cp-body tbody tr { height: 24px; }
+          .cp-body .c { text-align: center; vertical-align: middle; }
+          .cp-notes { margin-top: 3px; font-size: 6.5pt; }
+          .cp-notes p { margin: 1px 0; }
+          .cp-approval { margin-top: 10px; border-collapse: collapse; }
+          .cp-approval td { border: 1px solid #000; padding: 3px 10px; font-size: 7pt; text-align: center; }
+          .cp-approval .lbl { font-weight: bold; }
+          .cp-approval .sign { width: 70px; height: 35px; }
+          table { page-break-inside: auto; }
+          tr { page-break-inside: avoid; }
+        }
+      `}</style>
+
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg print:hidden">
+      <header className="cp-screen bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -312,7 +374,7 @@ export default function ControlPlanViewPage({
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="cp-screen max-w-7xl mx-auto px-6 py-8">
         {/* Summary Cards */}
         <div className="grid grid-cols-4 gap-4 mb-8 print:grid-cols-2 print:gap-2">
           <div className="bg-white/70 backdrop-blur rounded-2xl shadow-sm p-6 border border-white/50">
@@ -616,23 +678,110 @@ export default function ControlPlanViewPage({
         </div>
       </main>
 
-      {/* Print Styles */}
-      <style jsx>{`
-        @media print {
-          .print\:hidden {
-            display: none !important;
-          }
-          header {
-            display: none !important;
-          }
-          main {
-            padding: 0 !important;
-          }
-          body {
-            background: white !important;
-          }
-        }
-      `}</style>
+      {/* ===== Print Layout - 관리계획서 IATF 16949 양식 ===== */}
+      <div className="cp-print hidden">
+        <div className="cp-title">
+          <h1>관리계획서 (Control Plan)</h1>
+          <p>IATF 16949 / APQP 기준</p>
+        </div>
+
+        <table className="cp-header">
+          <tbody>
+            <tr>
+              <td className="lbl">관리계획서 No.</td>
+              <td>{controlPlan.doc_number || '-'}</td>
+              <td className="lbl">작성일</td>
+              <td>{new Date(controlPlan.created_at).toLocaleDateString('ko-KR')}</td>
+              <td className="lbl">개정일</td>
+              <td>{new Date(controlPlan.updated_at).toLocaleDateString('ko-KR')}</td>
+              <td className="lbl">Rev.</td>
+              <td>{controlPlan.revision}</td>
+            </tr>
+            <tr>
+              <td className="lbl">부품번호 / Part No.</td>
+              <td>{product?.part_number || product?.code || '-'}</td>
+              <td className="lbl">부품명 / Part Name</td>
+              <td>{product?.name || '-'}</td>
+              <td className="lbl">공급자 / Supplier</td>
+              <td>신성오토텍(주)</td>
+              <td className="lbl">Page</td>
+              <td>1 / 1</td>
+            </tr>
+            <tr>
+              <td className="lbl">고객 / Customer</td>
+              <td>{product?.customer || '-'}</td>
+              <td className="lbl">공장 / Plant</td>
+              <td>-</td>
+              <td className="lbl">승인일 / Approval</td>
+              <td>{controlPlan.status === 'approved' ? new Date(controlPlan.updated_at).toLocaleDateString('ko-KR') : '-'}</td>
+              <td className="lbl">단계</td>
+              <td>☐시작  ☑양산</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table className="cp-body">
+          <thead>
+            <tr>
+              <th style={{width:'2.5%'}}>No.</th>
+              <th style={{width:'4%'}}>공정<br/>번호</th>
+              <th style={{width:'8%'}}>공정명<br/>Process<br/>Name</th>
+              <th style={{width:'6%'}}>설비<br/>Machine/<br/>Device</th>
+              <th style={{width:'9%'}}>제품특성<br/>Product<br/>Characteristic</th>
+              <th style={{width:'9%'}}>공정특성<br/>Process<br/>Characteristic</th>
+              <th style={{width:'3.5%'}}>특별<br/>특성<br/>Class</th>
+              <th style={{width:'10%'}}>규격/공차<br/>Spec/<br/>Tolerance</th>
+              <th style={{width:'9%'}}>평가/측정<br/>기법<br/>Eval/Meas.<br/>Technique</th>
+              <th style={{width:'5%'}}>샘플<br/>크기<br/>Sample<br/>Size</th>
+              <th style={{width:'5%'}}>샘플<br/>주기<br/>Sample<br/>Freq.</th>
+              <th style={{width:'10%'}}>관리방법<br/>Control<br/>Method</th>
+              <th style={{width:'10%'}}>대응계획<br/>Reaction<br/>Plan</th>
+              <th style={{width:'5%'}}>비고<br/>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((line, idx) => {
+              const char = getChar(line.characteristic_id);
+              return (
+                <tr key={line.id}>
+                  <td className="c">{idx + 1}</td>
+                  <td className="c">{idx + 1}0</td>
+                  <td>{line.process_step}</td>
+                  <td></td>
+                  <td>{char?.type === 'product' ? (char.name || line.characteristic_name) : ''}</td>
+                  <td>{char?.type === 'process' ? (char.name || line.characteristic_name) : (!char ? line.characteristic_name : '')}</td>
+                  <td className="c">{getCharClass(line.characteristic_id)}</td>
+                  <td>{getSpecText(line.characteristic_id)}</td>
+                  <td>{char?.measurement_method || ''}</td>
+                  <td className="c">{line.sample_size || ''}</td>
+                  <td className="c">{line.frequency || ''}</td>
+                  <td>{line.control_method || ''}</td>
+                  <td>{line.reaction_plan || ''}</td>
+                  <td>{line.responsible || ''}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <div className="cp-notes">
+          <p>※ 특별특성 분류: CC(Critical Characteristic) / SC(Safety Characteristic) / 공란(일반특성)</p>
+          <p>※ 본 양식은 IATF 16949 및 APQP 2nd Edition 기준으로 작성됨</p>
+        </div>
+
+        <table className="cp-approval">
+          <tbody>
+            <tr>
+              <td className="lbl">작성</td>
+              <td className="sign"></td>
+              <td className="lbl">검토</td>
+              <td className="sign"></td>
+              <td className="lbl">승인</td>
+              <td className="sign"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
