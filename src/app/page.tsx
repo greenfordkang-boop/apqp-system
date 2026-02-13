@@ -1,16 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import {
-  productStore,
-  characteristicStore,
-  controlPlanStore,
-  sopStore,
-  inspectionStore,
-  pfmeaStore,
-  statsStore,
-} from '@/lib/store';
+import { useState, useEffect, Fragment } from 'react';
+import { statsStore } from '@/lib/store';
 
 interface Stats {
   products: number;
@@ -31,470 +23,201 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const s = await statsStore.getStats();
+    statsStore
+      .getStats()
+      .then((s) =>
         setStats({
           products: s.products,
           characteristics: s.characteristics,
           controlPlans: s.controlPlans,
           sops: s.sops,
           inspections: s.inspections,
-        });
-      } catch (error) {
-        console.error('Failed to load stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadStats();
+        })
+      )
+      .catch((err) => console.error('Failed to load stats:', err))
+      .finally(() => setLoading(false));
   }, []);
 
+  const statItems = [
+    { label: '등록 제품', value: stats.products },
+    { label: '관리 특성', value: stats.characteristics },
+    { label: 'Control Plan', value: stats.controlPlans },
+    { label: '작업표준서', value: stats.sops },
+    { label: '검사기준서', value: stats.inspections },
+  ];
+
+  const pipeline = [
+    { num: '01', title: '특성 등록', sub: '기초 데이터' },
+    { num: '02', title: 'PFMEA', sub: '위험 분석' },
+    { num: '03', title: 'Control Plan', sub: '관리 방법' },
+    { num: '04', title: 'SOP', sub: '작업 절차' },
+    { num: '05', title: '검사기준서', sub: '검사 기준' },
+  ];
+
   return (
-    <div className="min-h-screen gradient-bg">
-      {/* Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[var(--background)]/80 border-b border-[var(--divider)]">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-purple)] flex items-center justify-center">
-              <svg
-                className="w-5 h-5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <span className="font-semibold text-[var(--text-primary)]">신성오토텍(주)</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <NavLink href="/products">제품</NavLink>
-            <NavLink href="/documents">문서</NavLink>
-            <NavLink href="/documents/generate">문서 생성</NavLink>
+    <div className="min-h-screen bg-[var(--background)]">
+      {/* Navigation */}
+      <nav className="fixed top-0 inset-x-0 z-50 h-11 backdrop-blur-xl bg-[var(--background)]/80 border-b border-[var(--divider)]">
+        <div className="max-w-[980px] mx-auto px-6 h-full flex items-center justify-between">
+          <Link href="/" className="text-[14px] font-semibold text-[var(--text-primary)]">
+            신성오토텍 품질관리
+          </Link>
+          <div className="flex items-center gap-7">
+            <NavItem href="/products">제품</NavItem>
+            <NavItem href="/documents">문서</NavItem>
+            <NavItem href="/documents/generate">생성</NavItem>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <header className="pt-32 pb-16 px-6 text-center hero-gradient">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-[var(--text-primary)] mb-4">
-            신성오토텍(주)
-            <br />
-            <span className="text-gradient">품질문서관리 시스템</span>
+      <main className="max-w-[980px] mx-auto px-6 pt-[76px] pb-24">
+        {/* Page heading */}
+        <div className="mb-12">
+          <h1 className="text-[34px] font-bold tracking-[-0.003em] text-[var(--text-primary)] leading-[1.12]">
+            품질문서 통합관리
           </h1>
-          <p className="text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-8">
-            APQP 프로세스를 혁신하세요. 특성 등록부터 검사기준서까지,
-            모든 품질문서를 하나의 시스템에서 관리합니다.
+          <p className="text-[17px] text-[var(--text-secondary)] mt-2">
+            IATF 16949 기반 APQP 문서 관리 시스템
           </p>
-          <div className="flex justify-center gap-4">
-            <Link href="/products" className="apple-button">
-              시작하기
-              <svg
-                className="w-4 h-4 ml-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 8l4 4m0 0l-4 4m4-4H3"
-                />
-              </svg>
-            </Link>
-            <Link href="/documents" className="apple-button-secondary apple-button">
-              문서 둘러보기
-            </Link>
-          </div>
         </div>
-      </header>
 
-      <main className="max-w-6xl mx-auto px-6 pb-24">
-        {/* Stats Section */}
-        <section className="mb-16">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <StatCard
-              title="등록 제품"
-              count={stats.products}
-              loading={loading}
-              color="blue"
-            />
-            <StatCard
-              title="관리 특성"
-              count={stats.characteristics}
-              loading={loading}
-              color="purple"
-            />
-            <StatCard
-              title="Control Plan"
-              count={stats.controlPlans}
-              loading={loading}
-              color="green"
-            />
-            <StatCard
-              title="SOP 문서"
-              count={stats.sops}
-              loading={loading}
-              color="orange"
-            />
-            <StatCard
-              title="검사기준서"
-              count={stats.inspections}
-              loading={loading}
-              color="pink"
-            />
+        {/* Stats overview */}
+        <section className="mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {statItems.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-2xl bg-[var(--card-bg)] backdrop-blur-sm border border-[var(--card-border)] p-5"
+              >
+                <div className="text-[28px] font-bold text-[var(--text-primary)] tracking-tight leading-none">
+                  {loading ? (
+                    <div className="w-8 h-7 rounded-lg animate-pulse bg-[var(--divider)]" />
+                  ) : (
+                    item.value
+                  )}
+                </div>
+                <p className="text-[13px] text-[var(--text-secondary)] mt-2">{item.label}</p>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* Feature Cards */}
-        <section className="mb-16">
-          <div className="text-center mb-10">
-            <h2 className="section-title mb-3">강력한 기능</h2>
-            <p className="section-subtitle">품질관리의 모든 것을 하나로</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FeatureCard
-              href="/products"
-              icon={
-                <svg
-                  className="w-8 h-8"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-              }
-              title="신규 제품 등록"
-              description="새로운 차종과 제품 특성을 직관적으로 등록하세요. Single Source of Truth로 관리됩니다."
-              gradient="from-[var(--accent-green)] to-emerald-400"
-            />
-            <FeatureCard
-              href="/documents/generate"
-              icon={
-                <svg
-                  className="w-8 h-8"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              }
-              title="AI 문서 생성"
-              description="Control Plan에서 SOP, 검사기준서까지 AI가 자동으로 생성합니다."
-              gradient="from-[var(--accent-blue)] to-cyan-400"
-            />
-            <FeatureCard
-              href="/documents"
-              icon={
-                <svg
-                  className="w-8 h-8"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                  />
-                </svg>
-              }
-              title="정합성 검증"
-              description="문서 간 일관성을 자동으로 검사하고 누락된 항목을 즉시 파악합니다."
-              gradient="from-[var(--accent-purple)] to-violet-400"
-            />
-          </div>
-        </section>
-
-        {/* Document Flow */}
-        <section className="mb-16">
-          <div className="glass-card p-8 md:p-12">
-            <div className="text-center mb-10">
-              <h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">
-                APQP 문서 흐름
-              </h2>
-              <p className="text-[var(--text-secondary)]">완벽한 추적성을 보장하는 문서 체계</p>
+        {/* APQP Pipeline */}
+        <section className="mb-12">
+          <SectionLabel>APQP 문서 체계</SectionLabel>
+          <div className="rounded-2xl bg-[var(--card-bg)] backdrop-blur-sm border border-[var(--card-border)] p-6 md:p-10">
+            <div className="flex flex-col md:flex-row items-center">
+              {pipeline.map((step, i) => (
+                <Fragment key={step.num}>
+                  {i > 0 && (
+                    <div className="w-px h-5 md:w-10 md:h-px bg-[var(--divider)] flex-shrink-0" />
+                  )}
+                  <div className="flex-1 text-center py-2 md:py-0 md:px-1 min-w-0">
+                    <div className="text-[11px] font-bold text-[var(--text-tertiary)] tracking-wide">
+                      {step.num}
+                    </div>
+                    <div className="text-[15px] font-semibold text-[var(--text-primary)] mt-0.5 leading-tight">
+                      {step.title}
+                    </div>
+                    <div className="text-[11px] text-[var(--text-secondary)] mt-1">{step.sub}</div>
+                  </div>
+                </Fragment>
+              ))}
             </div>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <FlowStep
-                number="01"
-                title="특성 등록"
-                subtitle="Single Source of Truth"
-                color="blue"
-              />
-              <FlowArrow />
-              <FlowStep
-                number="02"
-                title="PFMEA"
-                subtitle="잠재고장모드분석"
-                color="purple"
-              />
-              <FlowArrow />
-              <FlowStep
-                number="03"
-                title="Control Plan"
-                subtitle="관리계획서"
-                color="green"
-              />
-              <FlowArrow />
-              <FlowStep
-                number="04"
-                title="SOP"
-                subtitle="표준작업절차서"
-                color="orange"
-              />
-              <FlowArrow />
-              <FlowStep
-                number="05"
-                title="검사기준서"
-                subtitle="품질검사기준"
-                color="pink"
-              />
-            </div>
-            <div className="mt-8 pt-6 border-t border-[var(--divider)] text-center">
-              <p className="text-sm text-[var(--text-tertiary)]">
-                모든 문서는 FK 관계로 연결되어 완벽한 Traceability를 보장합니다
+            <div className="mt-8 pt-5 border-t border-[var(--divider)] text-center">
+              <p className="text-[12px] text-[var(--text-tertiary)]">
+                모든 문서는 연결되어 완벽한 추적성(Traceability)을 보장합니다
               </p>
             </div>
           </div>
         </section>
 
-        {/* Menu Grid */}
+        {/* Quick actions */}
         <section>
-          <div className="text-center mb-10">
-            <h2 className="section-title mb-3">빠른 메뉴</h2>
-            <p className="section-subtitle">원하는 기능에 바로 접근하세요</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <MenuCard href="/products" icon="📦" title="제품 관리" />
-            <MenuCard href="/documents" icon="📊" title="PFMEA" />
-            <MenuCard href="/documents" icon="📋" title="Control Plan" />
-            <MenuCard href="/documents" icon="📝" title="SOP" />
-            <MenuCard href="/documents" icon="✅" title="검사기준서" />
-            <MenuCard href="/documents/generate" icon="🤖" title="문서 생성" />
+          <SectionLabel>바로가기</SectionLabel>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ActionCard
+              href="/products"
+              title="제품 관리"
+              description="제품과 특성을 등록하고 관리합니다"
+              icon="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+            />
+            <ActionCard
+              href="/documents/generate"
+              title="AI 문서 생성"
+              description="APQP 문서를 한 번에 자동 생성합니다"
+              icon="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+            <ActionCard
+              href="/documents"
+              title="문서 관리"
+              description="생성된 품질문서를 조회하고 편집합니다"
+              icon="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--divider)] bg-[var(--background)]">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-purple)] flex items-center justify-center">
-                <svg
-                  className="w-4 h-4 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <span className="text-sm font-medium text-[var(--text-secondary)]">
-                신성오토텍(주) 품질문서관리 시스템
-              </span>
-            </div>
-            <div className="flex items-center gap-6 text-sm text-[var(--text-tertiary)]">
-              <span>v0.1.0</span>
-              <span>•</span>
-              <span>IATF 16949 Compliant</span>
-            </div>
-          </div>
+      <footer className="border-t border-[var(--divider)]">
+        <div className="max-w-[980px] mx-auto px-6 py-5 flex flex-col sm:flex-row justify-between items-center gap-2">
+          <span className="text-[12px] text-[var(--text-tertiary)]">
+            신성오토텍(주) 품질문서관리 시스템
+          </span>
+          <span className="text-[12px] text-[var(--text-tertiary)]">IATF 16949 Compliant</span>
         </div>
       </footer>
     </div>
   );
 }
 
-function NavLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
+function NavItem({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+      className="text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
     >
       {children}
     </Link>
   );
 }
 
-function StatCard({
-  title,
-  count,
-  loading,
-  color,
-}: {
-  title: string;
-  count: number;
-  loading: boolean;
-  color: 'blue' | 'purple' | 'green' | 'orange' | 'pink';
-}) {
-  const colorMap = {
-    blue: 'from-[var(--accent-blue)]/10 to-[var(--accent-blue)]/5 border-[var(--accent-blue)]/20',
-    purple:
-      'from-[var(--accent-purple)]/10 to-[var(--accent-purple)]/5 border-[var(--accent-purple)]/20',
-    green:
-      'from-[var(--accent-green)]/10 to-[var(--accent-green)]/5 border-[var(--accent-green)]/20',
-    orange:
-      'from-[var(--accent-orange)]/10 to-[var(--accent-orange)]/5 border-[var(--accent-orange)]/20',
-    pink: 'from-[var(--accent-pink)]/10 to-[var(--accent-pink)]/5 border-[var(--accent-pink)]/20',
-  };
-
-  const textColorMap = {
-    blue: 'text-[var(--accent-blue)]',
-    purple: 'text-[var(--accent-purple)]',
-    green: 'text-[var(--accent-green)]',
-    orange: 'text-[var(--accent-orange)]',
-    pink: 'text-[var(--accent-pink)]',
-  };
-
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`glass-card p-5 bg-gradient-to-br ${colorMap[color]} border`}>
-      <div className={`text-3xl font-bold ${textColorMap[color]} mb-1`}>
-        {loading ? (
-          <div className="w-12 h-8 rounded loading-shimmer" />
-        ) : (
-          count.toLocaleString()
-        )}
-      </div>
-      <p className="text-sm text-[var(--text-secondary)]">{title}</p>
-    </div>
+    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-4">
+      {children}
+    </p>
   );
 }
 
-function FeatureCard({
+function ActionCard({
   href,
-  icon,
   title,
   description,
-  gradient,
+  icon,
 }: {
   href: string;
-  icon: React.ReactNode;
   title: string;
   description: string;
-  gradient: string;
+  icon: string;
 }) {
   return (
     <Link href={href} className="group">
-      <div className="glass-card p-6 h-full">
-        <div
-          className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform`}
-        >
-          {icon}
+      <div className="rounded-2xl bg-[var(--card-bg)] backdrop-blur-sm border border-[var(--card-border)] p-6 h-full transition-all duration-200 hover:shadow-lg hover:shadow-black/[0.03] hover:-translate-y-px">
+        <div className="w-10 h-10 rounded-xl bg-[var(--background)] flex items-center justify-center mb-4">
+          <svg
+            className="w-5 h-5 text-[var(--text-secondary)]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icon} />
+          </svg>
         </div>
-        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+        <h3 className="text-[17px] font-semibold text-[var(--text-primary)] mb-1 group-hover:text-[var(--accent-blue)] transition-colors">
           {title}
         </h3>
-        <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
-          {description}
-        </p>
-      </div>
-    </Link>
-  );
-}
-
-function FlowStep({
-  number,
-  title,
-  subtitle,
-  color,
-}: {
-  number: string;
-  title: string;
-  subtitle: string;
-  color: 'blue' | 'purple' | 'green' | 'orange' | 'pink';
-}) {
-  const colorMap = {
-    blue: 'bg-[var(--accent-blue)]',
-    purple: 'bg-[var(--accent-purple)]',
-    green: 'bg-[var(--accent-green)]',
-    orange: 'bg-[var(--accent-orange)]',
-    pink: 'bg-[var(--accent-pink)]',
-  };
-
-  return (
-    <div className="flex flex-col items-center text-center flex-1">
-      <div
-        className={`w-12 h-12 ${colorMap[color]} rounded-full flex items-center justify-center text-white font-semibold text-sm mb-3`}
-      >
-        {number}
-      </div>
-      <p className="font-medium text-[var(--text-primary)] mb-1">{title}</p>
-      <p className="text-xs text-[var(--text-tertiary)]">{subtitle}</p>
-    </div>
-  );
-}
-
-function FlowArrow() {
-  return (
-    <div className="hidden md:flex items-center text-[var(--text-tertiary)]">
-      <svg
-        className="w-6 h-6"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M17 8l4 4m0 0l-4 4m4-4H3"
-        />
-      </svg>
-    </div>
-  );
-}
-
-function MenuCard({
-  href,
-  icon,
-  title,
-}: {
-  href: string;
-  icon: string;
-  title: string;
-}) {
-  return (
-    <Link href={href}>
-      <div className="glass-card p-4 text-center group cursor-pointer">
-        <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">
-          {icon}
-        </div>
-        <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
+        <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">{description}</p>
       </div>
     </Link>
   );
