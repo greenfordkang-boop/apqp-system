@@ -8,10 +8,52 @@ import {
   productStore,
   aiReviewPfmeaLine,
   generateDocNumber,
+  calcAP,
 } from '@/lib/store';
 import type { PfmeaHeader, PfmeaLine, Product, Characteristic } from '@/lib/store';
 
 type EditingLine = PfmeaLine;
+
+// ============ S/O/D 평가기준 (AIAG 4th Edition / AIAG & VDA 2019) ============
+
+const SOD_SEVERITY = [
+  { value: 10, label: '경고없는 안전위험', detail: '안전/법규 위반, 경고 없이 인체 위해 가능 | 작업자 위험(경고 없음)' },
+  { value: 9,  label: '경고있는 안전위험', detail: '안전/법규 위반, 사전 경고 후 인체 위해 가능 | 작업자 위험(경고 있음)' },
+  { value: 8,  label: '기능 상실', detail: '차량/아이템 작동불능, 본래 기능 완전 상실 | 100% 스크랩, 라인 정지' },
+  { value: 7,  label: '기능 저하', detail: '차량 운행 가능하나 성능 수준 저하 | 선별 후 일부 스크랩, 라인 외 수리' },
+  { value: 6,  label: '기능 저하(부분)', detail: '편의기능 작동불가, 고객 매우 불만 | 100% 재작업(라인 외)' },
+  { value: 5,  label: '편의기능 저하', detail: '편의기능 성능 저하, 고객 불만 | 일부 재작업(라인 외)' },
+  { value: 4,  label: '외관/소음(대부분 인지)', detail: '외관·소음·진동 등 대부분 고객이 인지 | 100% 재작업(라인 내)' },
+  { value: 3,  label: '외관/소음(일부 인지)', detail: '외관·소음 등 일부 고객만 인지 | 라인 내 선별 작업' },
+  { value: 2,  label: '경미한 불량', detail: '식별력 높은 고객만 인지 가능 | 작업 불편(경미)' },
+  { value: 1,  label: '영향 없음', detail: '고객이 인지할 수 없는 수준 | 공정에 영향 없음' },
+];
+
+const SOD_OCCURRENCE = [
+  { value: 10, label: '극히 높음 (≥100,000ppm)', detail: 'Cpk < 0.33 | 예방관리 없음, 유사공정 만성 불량' },
+  { value: 9,  label: '매우 높음 (50,000ppm)', detail: 'Cpk ≈ 0.33 | 예방관리 있으나 효과 미미' },
+  { value: 8,  label: '높음 (20,000ppm)', detail: 'Cpk ≈ 0.51 | 예방관리 효과 제한적' },
+  { value: 7,  label: '다소 높음 (10,000ppm)', detail: 'Cpk ≈ 0.67 | 유사공정에서 간헐적 고장' },
+  { value: 6,  label: '보통 (2,000ppm)', detail: 'Cpk ≈ 0.83 | 유사공정에서 단발적 고장' },
+  { value: 5,  label: '다소 낮음 (500ppm)', detail: 'Cpk ≈ 1.00 | 유사공정에서 가끔 고장' },
+  { value: 4,  label: '낮음 (100ppm)', detail: 'Cpk ≈ 1.17 | 유사공정에서 드물게 발생' },
+  { value: 3,  label: '매우 낮음 (10ppm)', detail: 'Cpk ≈ 1.33 | 극히 드물게 발생' },
+  { value: 2,  label: '극히 낮음 (≤1ppm)', detail: 'Cpk ≈ 1.67 | 검증된 예방관리로 거의 발생 안함' },
+  { value: 1,  label: '거의 없음', detail: 'Cpk ≥ 1.67 | 예방관리로 고장 원인 자체 제거' },
+];
+
+const SOD_DETECTION = [
+  { value: 10, label: '검출 불가', detail: '관리방법 없음 | 검사/관리 미실시' },
+  { value: 9,  label: '거의 불가', detail: '간접적/무작위 검사 | 무작위 샘플링' },
+  { value: 8,  label: '매우 낮음', detail: '육안검사 | 단순 육안검사만 실시' },
+  { value: 7,  label: '낮음', detail: '이중 육안검사 | 수동 게이지(Go-NoGo)' },
+  { value: 6,  label: '다소 낮음', detail: '수동측정/SPC | 수동 게이지 + SPC 관리' },
+  { value: 5,  label: '보통', detail: '게이지/자동검사 | 공정 후 자동검사(셋업 확인)' },
+  { value: 4,  label: '다소 높음', detail: '후공정 자동검사 | 복수항목 통계적 관리' },
+  { value: 3,  label: '높음', detail: '자동검출+분리 | 자동 불량 검출·라인아웃' },
+  { value: 2,  label: '매우 높음', detail: '자동검출+정지 | Poka-Yoke, 설비 자동 정지' },
+  { value: 1,  label: '거의 확실', detail: '고장 발생 불가 | Fool Proof 설계' },
+];
 
 // 신규 항목 입력용 타입
 interface NewLineInput {
@@ -110,6 +152,8 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
       const num = Math.max(1, Math.min(10, parseInt(String(value)) || 1));
       (updated as Record<string, unknown>)[field] = num;
       updated.rpn = updated.severity * updated.occurrence * updated.detection;
+      // AIAG & VDA 2019 S-O-D 조합 테이블 기반 AP 자동 계산
+      updated.action_priority = calcAP(updated.severity, updated.occurrence, updated.detection);
     }
     editingLines.set(lineId, updated);
     setEditingLines(new Map(editingLines));
@@ -372,7 +416,8 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
 
   const getRpnColor = (rpn: number) => {
     if (rpn >= 200) return 'text-red-600 font-bold';
-    if (rpn >= 100) return 'text-orange-600 font-semibold';
+    if (rpn >= 120) return 'text-orange-600 font-semibold';
+    if (rpn >= 40) return 'text-yellow-600';
     return 'text-gray-700';
   };
 
@@ -420,7 +465,8 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
     );
   }
 
-  const highRiskCount = lines.filter((l) => l.rpn >= 200).length;
+  const apHCount = lines.filter((l) => l.action_priority === 'H').length;
+  const apMCount = lines.filter((l) => l.action_priority === 'M').length;
   const avgRpn = lines.length > 0 ? Math.round(lines.reduce((sum, l) => sum + l.rpn, 0) / lines.length) : 0;
   const unreviewedCount = lines.filter((l) => l.severity <= 1 && l.occurrence <= 1 && l.detection <= 1).length;
 
@@ -695,12 +741,12 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
             <div className="text-2xl font-bold text-blue-600">{lines.length}</div>
           </div>
           <div className="bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl p-5 shadow-sm">
-            <div className="text-xs font-medium text-gray-500 mb-1">고위험 (≥200)</div>
-            <div className="text-2xl font-bold text-red-600">{highRiskCount}</div>
+            <div className="text-xs font-medium text-gray-500 mb-1">AP High</div>
+            <div className="text-2xl font-bold text-red-600">{apHCount}</div>
           </div>
           <div className="bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl p-5 shadow-sm">
-            <div className="text-xs font-medium text-gray-500 mb-1">중위험 (≥100)</div>
-            <div className="text-2xl font-bold text-orange-600">{lines.filter((l) => l.rpn >= 100 && l.rpn < 200).length}</div>
+            <div className="text-xs font-medium text-gray-500 mb-1">AP Medium</div>
+            <div className="text-2xl font-bold text-orange-600">{apMCount}</div>
           </div>
           <div className="bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl p-5 shadow-sm">
             <div className="text-xs font-medium text-gray-500 mb-1">평균 RPN</div>
@@ -1058,39 +1104,70 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
                 {/* S / O / D 그룹 */}
                 <div className="bg-gray-50 rounded-xl p-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">위험도 평가 (S × O × D = RPN)</label>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-3">
+                    {/* 심각도 (S) */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">심각도 (S)</label>
-                      <input
-                        type="number" min={1} max={10}
+                      <label className="block text-xs font-medium text-gray-500 mb-1">심각도 (S) — 고장영향의 심각한 정도</label>
+                      <select
                         value={editLine.severity}
                         onChange={(e) => handleEditingChange(editPanelLineId, 'severity', e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-center font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg font-semibold text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      >
+                        {SOD_SEVERITY.map((item) => (
+                          <option key={item.value} value={item.value}>{item.value} — {item.label}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[11px] text-gray-400">{SOD_SEVERITY.find(i => i.value === editLine.severity)?.detail}</p>
                     </div>
+                    {/* 발생도 (O) */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">발생도 (O)</label>
-                      <input
-                        type="number" min={1} max={10}
+                      <label className="block text-xs font-medium text-gray-500 mb-1">발생도 (O) — 고장원인의 발생 빈도</label>
+                      <select
                         value={editLine.occurrence}
                         onChange={(e) => handleEditingChange(editPanelLineId, 'occurrence', e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-center font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg font-semibold text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      >
+                        {SOD_OCCURRENCE.map((item) => (
+                          <option key={item.value} value={item.value}>{item.value} — {item.label}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[11px] text-gray-400">{SOD_OCCURRENCE.find(i => i.value === editLine.occurrence)?.detail}</p>
                     </div>
+                    {/* 검출도 (D) */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">검출도 (D)</label>
-                      <input
-                        type="number" min={1} max={10}
+                      <label className="block text-xs font-medium text-gray-500 mb-1">검출도 (D) — 출하 전 고장 검출 능력</label>
+                      <select
                         value={editLine.detection}
                         onChange={(e) => handleEditingChange(editPanelLineId, 'detection', e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-center font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg font-semibold text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      >
+                        {SOD_DETECTION.map((item) => (
+                          <option key={item.value} value={item.value}>{item.value} — {item.label}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[11px] text-gray-400">{SOD_DETECTION.find(i => i.value === editLine.detection)?.detail}</p>
                     </div>
                   </div>
                   <div className="mt-3 text-center">
-                    <span className={`text-2xl font-bold ${getRpnColor(editLine.severity * editLine.occurrence * editLine.detection)}`}>
-                      RPN = {editLine.severity * editLine.occurrence * editLine.detection}
-                    </span>
+                    {(() => {
+                      const rpnVal = editLine.severity * editLine.occurrence * editLine.detection;
+                      const rpnLabel = rpnVal >= 200 ? '고위험' : rpnVal >= 120 ? '중위험' : rpnVal >= 40 ? '저위험' : '허용';
+                      return (
+                        <>
+                          <span className={`text-2xl font-bold ${getRpnColor(rpnVal)}`}>
+                            RPN = {rpnVal}
+                          </span>
+                          <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                            rpnVal >= 200 ? 'bg-red-100 text-red-700'
+                              : rpnVal >= 120 ? 'bg-orange-100 text-orange-700'
+                              : rpnVal >= 40 ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-green-100 text-green-700'
+                          }`}>
+                            {rpnLabel}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -1129,26 +1206,57 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
                   </div>
                 </div>
 
-                {/* AP */}
+                {/* AP - AIAG & VDA 2019 자동 계산 */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">조치 우선순위 (AP)</label>
-                  <div className="flex gap-3">
-                    {(['H', 'M', 'L'] as const).map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => handleEditingChange(editPanelLineId, 'action_priority', editLine.action_priority === p ? '' : p)}
-                        className={`flex-1 py-2.5 rounded-lg font-bold text-sm border-2 transition-all ${
-                          editLine.action_priority === p
-                            ? p === 'H' ? 'bg-red-100 border-red-400 text-red-700'
-                              : p === 'M' ? 'bg-orange-100 border-orange-400 text-orange-700'
-                              : 'bg-green-100 border-green-400 text-green-700'
-                            : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
-                        }`}
-                      >
-                        {p === 'H' ? 'H (높음)' : p === 'M' ? 'M (중간)' : 'L (낮음)'}
-                      </button>
-                    ))}
-                  </div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    조치 우선순위 (AP)
+                    <span className="ml-2 text-xs font-normal text-gray-400">AIAG &amp; VDA 2019 S-O-D 조합</span>
+                  </label>
+                  {(() => {
+                    const autoAP = calcAP(editLine.severity, editLine.occurrence, editLine.detection);
+                    const isOverridden = editLine.action_priority !== autoAP && editLine.action_priority;
+                    return (
+                      <>
+                        <div className="flex gap-3">
+                          {(['H', 'M', 'L'] as const).map((p) => (
+                            <div
+                              key={p}
+                              className={`flex-1 py-2.5 rounded-lg font-bold text-sm border-2 text-center transition-all ${
+                                editLine.action_priority === p
+                                  ? p === 'H' ? 'bg-red-100 border-red-400 text-red-700'
+                                    : p === 'M' ? 'bg-orange-100 border-orange-400 text-orange-700'
+                                    : 'bg-green-100 border-green-400 text-green-700'
+                                  : 'bg-white border-gray-200 text-gray-400'
+                              }`}
+                            >
+                              {p === 'H' ? 'H (높음)' : p === 'M' ? 'M (보통)' : 'L (낮음)'}
+                              {p === autoAP && <span className="ml-1 text-[10px] font-normal opacity-70">auto</span>}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="mt-2 text-xs text-gray-500">
+                          {editLine.action_priority === 'H'
+                            ? '반드시 개선조치 실시 (필수) - 즉시~1개월'
+                            : editLine.action_priority === 'M'
+                            ? '개선조치 권고 (강력 권장) - 1~3개월'
+                            : '재량적 조치, 정기 리뷰 시 재평가'}
+                        </p>
+                        {editLine.severity >= 9 && editLine.occurrence >= 2 && (
+                          <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium">
+                            S={editLine.severity}, O={editLine.occurrence}: 안전/법규 관련 항목으로 반드시 H(High) 적용
+                          </div>
+                        )}
+                        {isOverridden && (
+                          <button
+                            onClick={() => handleEditingChange(editPanelLineId, 'action_priority', autoAP)}
+                            className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                          >
+                            자동 계산값({autoAP})으로 복원
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* 권장조치 */}
