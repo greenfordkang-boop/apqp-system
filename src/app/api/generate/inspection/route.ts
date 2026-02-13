@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     // 3. Control Plan 존재 확인
     const { data: controlPlan, error: cpError } = await supabase
       .from('control_plans')
-      .select('id, pfmea_id, name')
+      .select('id, pfmea_id, product_id, name')
       .eq('id', control_plan_id)
       .single();
 

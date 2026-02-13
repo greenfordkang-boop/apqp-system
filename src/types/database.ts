@@ -35,7 +35,7 @@ export interface Characteristic {
 // ============================================
 export interface PfmeaHeader {
   id: UUID;
-  project_id: UUID;
+  product_id: UUID;
   process_name: string;
   revision: number;
   status: 'draft' | 'review' | 'approved';

@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
     const { data: existingPfmea } = await supabase
       .from('pfmea_headers')
       .select('id')
-      .eq('project_id', product_id)
+      .eq('product_id', product_id)
       .eq('status', 'draft')
       .single();
 
@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
       .from('pfmea_headers')
       .insert({
         id: pfmeaId,
-        project_id: product_id,
+        product_id: product_id,
         process_name: processName,
         revision: 1,
         status: 'draft',
@@ -407,7 +407,7 @@ export async function GET(request: NextRequest) {
         action_priority
       )
     `)
-    .eq('project_id', productId)
+    .eq('product_id', productId)
     .order('revision', { ascending: false })
     .limit(1)
     .single();

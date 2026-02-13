@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
     // 2. PFMEA 존재 확인
     const { data: pfmea, error: pfmeaError } = await supabase
       .from('pfmea_headers')
-      .select('id, project_id, process_name')
+      .select('id, product_id, process_name')
       .eq('id', pfmea_id)
       .single();
 

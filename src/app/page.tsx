@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useCallback } from 'react';
 import { statsStore } from '@/lib/store';
 
 interface Stats {
@@ -21,6 +21,7 @@ export default function Dashboard() {
     inspections: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     statsStore
@@ -66,6 +67,12 @@ export default function Dashboard() {
             <NavItem href="/products">제품</NavItem>
             <NavItem href="/documents">문서</NavItem>
             <NavItem href="/documents/generate">생성</NavItem>
+            <button
+              onClick={() => setShowGuide(true)}
+              className="text-[12px] text-[var(--accent-blue)] hover:text-blue-700 transition-colors font-medium"
+            >
+              사용법
+            </button>
           </div>
         </div>
       </nav>
@@ -167,6 +174,103 @@ export default function Dashboard() {
           <span className="text-[12px] text-[var(--text-tertiary)]">IATF 16949 Compliant</span>
         </div>
       </footer>
+
+      {/* Guide Modal */}
+      {showGuide && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setShowGuide(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl max-w-[560px] w-full max-h-[85vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-white rounded-t-2xl border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-[17px] font-bold text-gray-900">사용법</h2>
+              <button
+                onClick={() => setShowGuide(false)}
+                className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+              >
+                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5 space-y-6">
+              {/* Step 1 */}
+              <GuideStep
+                num="1"
+                title="제품 및 특성 등록"
+                description="제품관리에서 고객사, 차종, 품명, Part No를 입력하고, 관리할 특성(치수, 외관, 성능 등)을 등록합니다."
+                tip="특성은 APQP 문서의 기초입니다. 특성이 없으면 문서 생성이 불가합니다."
+              />
+
+              {/* Step 2 */}
+              <GuideStep
+                num="2"
+                title="AI 문서 자동 생성"
+                description="문서관리에서 AI 보완 버튼을 클릭하면 PFMEA → 관리계획서 → 작업표준서 → 검사기준서가 자동 생성됩니다."
+                tip="또는 생성 메뉴에서 단계별로 개별 생성할 수도 있습니다."
+              />
+
+              {/* Step 3 */}
+              <GuideStep
+                num="3"
+                title="문서 검토 및 편집"
+                description="생성된 문서를 클릭하여 내용을 검토하고, 필요시 직접 편집합니다. 각 문서의 상태를 작성중 → 검토중 → 승인됨으로 변경할 수 있습니다."
+                tip=""
+              />
+
+              {/* Step 4 */}
+              <GuideStep
+                num="4"
+                title="추적성 확인"
+                description="추적성 매트릭스에서 특성별로 PFMEA, CP, SOP, 검사기준서가 모두 연결되어 있는지 한눈에 확인합니다."
+                tip="누락 항목이 있으면 빨간색으로 표시됩니다."
+              />
+
+              {/* Flow diagram */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-3">문서 생성 흐름</p>
+                <div className="flex items-center justify-between text-center text-[12px]">
+                  <div className="flex-1">
+                    <div className="font-bold text-gray-900">특성</div>
+                    <div className="text-gray-400">기초 데이터</div>
+                  </div>
+                  <div className="text-gray-300 px-1">→</div>
+                  <div className="flex-1">
+                    <div className="font-bold text-gray-900">PFMEA</div>
+                    <div className="text-gray-400">위험 분석</div>
+                  </div>
+                  <div className="text-gray-300 px-1">→</div>
+                  <div className="flex-1">
+                    <div className="font-bold text-gray-900">CP</div>
+                    <div className="text-gray-400">관리 방법</div>
+                  </div>
+                  <div className="text-gray-300 px-1">→</div>
+                  <div className="flex-1">
+                    <div className="font-bold text-gray-900">SOP</div>
+                    <div className="text-gray-400">작업 절차</div>
+                  </div>
+                  <div className="text-gray-300 px-1">→</div>
+                  <div className="flex-1">
+                    <div className="font-bold text-gray-900">검사</div>
+                    <div className="text-gray-400">검사 기준</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
+              <p className="text-[11px] text-gray-400 text-center">
+                IATF 16949 기반 · 특성(SSOT) → PFMEA → CP → SOP → 검사기준서 추적성 보장
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -220,5 +324,24 @@ function ActionCard({
         <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">{description}</p>
       </div>
     </Link>
+  );
+}
+
+function GuideStep({ num, title, description, tip }: { num: string; title: string; description: string; tip: string }) {
+  return (
+    <div className="flex gap-4">
+      <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-[13px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+        {num}
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="text-[15px] font-semibold text-gray-900">{title}</h3>
+        <p className="text-[13px] text-gray-600 mt-1 leading-relaxed">{description}</p>
+        {tip && (
+          <p className="text-[12px] text-blue-600 mt-1.5 bg-blue-50 rounded-lg px-3 py-1.5 inline-block">
+            {tip}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

@@ -482,7 +482,20 @@ export const controlPlanStore = {
   },
 
   getByProductId: async (productId: string): Promise<ControlPlan | null> => {
-    const { data } = await supabase.from('control_plans').select('*').eq('product_id', productId).limit(1).maybeSingle();
+    // control_plans has no product_id column; query through pfmea_headers FK chain
+    const { data: pfmea } = await supabase
+      .from('pfmea_headers')
+      .select('id')
+      .eq('product_id', productId)
+      .limit(1)
+      .maybeSingle();
+    if (!pfmea) return null;
+    const { data } = await supabase
+      .from('control_plans')
+      .select('*')
+      .eq('pfmea_id', pfmea.id)
+      .limit(1)
+      .maybeSingle();
     return data;
   },
 
@@ -575,7 +588,15 @@ export const sopStore = {
   },
 
   getByProductId: async (productId: string): Promise<Sop | null> => {
-    const { data } = await supabase.from('sops').select('*').eq('product_id', productId).limit(1).maybeSingle();
+    // sops has no product_id column; query through pfmea → control_plan chain
+    const cp = await controlPlanStore.getByProductId(productId);
+    if (!cp) return null;
+    const { data } = await supabase
+      .from('sops')
+      .select('*')
+      .eq('control_plan_id', cp.id)
+      .limit(1)
+      .maybeSingle();
     return data;
   },
 
@@ -626,7 +647,15 @@ export const inspectionStore = {
   },
 
   getByProductId: async (productId: string): Promise<InspectionStandard | null> => {
-    const { data } = await supabase.from('inspection_standards').select('*').eq('product_id', productId).limit(1).maybeSingle();
+    // inspection_standards has no product_id column; query through pfmea → control_plan chain
+    const cp = await controlPlanStore.getByProductId(productId);
+    if (!cp) return null;
+    const { data } = await supabase
+      .from('inspection_standards')
+      .select('*')
+      .eq('control_plan_id', cp.id)
+      .limit(1)
+      .maybeSingle();
     return data;
   },
 
