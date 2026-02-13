@@ -209,9 +209,16 @@ export default function InspectionViewPage({
         <header className="bg-gradient-to-r from-pink-500 to-pink-600 text-white shadow-lg">
           <div className="max-w-7xl mx-auto px-6 py-8">
             <div className="flex items-center justify-between mb-6">
-              <Link href="/documents/generate" className="text-white/70 hover:text-white transition-colors text-sm">
-                ← 돌아가기
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link href="/documents/generate" className="text-white/70 hover:text-white transition-colors text-sm">
+                  ← 돌아가기
+                </Link>
+                {product && (
+                  <Link href={`/documents/traceability/${product.id}`} className="px-2.5 py-1 text-xs font-medium bg-white/20 hover:bg-white/30 rounded-lg transition-colors">
+                    추적성
+                  </Link>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 {!isEditMode ? (
                   <>

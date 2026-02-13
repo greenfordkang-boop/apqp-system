@@ -511,6 +511,11 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </Link>
+              {product && (
+                <Link href={`/documents/traceability/${product.id}`} className="no-print px-2.5 py-1 text-xs font-medium bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors" title="추적성 매트릭스">
+                  추적성
+                </Link>
+              )}
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">PFMEA 분석</h1>
                 <p className="text-sm text-gray-500">

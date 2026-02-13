@@ -413,6 +413,11 @@ export default function ControlPlanViewPage({
               >
                 ← 돌아가기
               </Link>
+              {product && (
+                <Link href={`/documents/traceability/${product.id}`} className="px-2.5 py-1 text-xs font-medium bg-white/20 hover:bg-white/30 rounded-lg transition-colors">
+                  추적성
+                </Link>
+              )}
             </div>
             <div className="flex items-center gap-4">
               {!editMode && (
