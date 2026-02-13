@@ -83,7 +83,9 @@ export interface ControlPlanItem {
   control_plan_id: string;
   pfmea_line_id: string;
   characteristic_id: string;
+  process_number: string;
   process_step: string;
+  machine_device: string;
   characteristic_name: string;
   control_type: 'prevention' | 'detection';
   control_method: string;
@@ -767,12 +769,15 @@ export async function generateControlPlanForPfmea(pfmeaId: string, productId: st
   const items: ControlPlanItem[] = [];
   for (const line of pfmeaLines) {
     const char = await characteristicStore.getById(line.characteristic_id);
+    const procNum = `I-${(pfmeaLines.indexOf(line) + 1) * 10}`;
     // 예방 관리
     items.push(await controlPlanStore.createItem({
       control_plan_id: plan.id,
       pfmea_line_id: line.id,
       characteristic_id: line.characteristic_id,
+      process_number: procNum,
       process_step: line.process_step,
+      machine_device: '',
       characteristic_name: char?.name || '',
       control_type: 'prevention',
       control_method: line.current_control_prevention || '공정 조건 관리',
@@ -786,7 +791,9 @@ export async function generateControlPlanForPfmea(pfmeaId: string, productId: st
       control_plan_id: plan.id,
       pfmea_line_id: line.id,
       characteristic_id: line.characteristic_id,
+      process_number: procNum,
       process_step: line.process_step,
+      machine_device: '',
       characteristic_name: char?.name || '',
       control_type: 'detection',
       control_method: line.current_control_detection || char?.measurement_method || '측정 검사',

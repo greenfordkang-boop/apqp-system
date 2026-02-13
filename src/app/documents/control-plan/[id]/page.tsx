@@ -25,6 +25,7 @@ export default function ControlPlanViewPage({
   const [pfmea, setPfmea] = useState<any>(null);
   const [characteristics, setCharacteristics] = useState<Characteristic[]>([]);
   const [saving, setSaving] = useState(false);
+  const [editPanelLineId, setEditPanelLineId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -107,7 +108,9 @@ export default function ControlPlanViewPage({
       const line = lines.find((l) => l.id === lineId);
       if (line) {
         await controlPlanStore.updateItem(lineId, {
+          process_number: line.process_number,
           process_step: line.process_step,
+          machine_device: line.machine_device,
           characteristic_name: line.characteristic_name,
           control_type: line.control_type,
           control_method: line.control_method,
@@ -148,6 +151,32 @@ export default function ControlPlanViewPage({
       })
     );
     await fetchControlPlan();
+  };
+
+  const handleSaveAll = async () => {
+    setSaving(true);
+    try {
+      for (const line of lines) {
+        await controlPlanStore.updateItem(line.id, {
+          process_number: line.process_number,
+          process_step: line.process_step,
+          machine_device: line.machine_device,
+          characteristic_name: line.characteristic_name,
+          control_type: line.control_type,
+          control_method: line.control_method,
+          sample_size: line.sample_size,
+          frequency: line.frequency,
+          reaction_plan: line.reaction_plan,
+          responsible: line.responsible,
+        });
+      }
+      await fetchControlPlan();
+      setEditMode(false);
+      setEditPanelLineId(null);
+    } catch (err) {
+      console.error('Error saving all:', err);
+    }
+    setSaving(false);
   };
 
   const handleStatusChange = async (newStatus: 'draft' | 'review' | 'approved') => {
@@ -451,74 +480,56 @@ export default function ControlPlanViewPage({
           )}
         </div>
 
-        {/* Status Actions */}
-        {editMode && (
-          <div className="bg-yellow-50/70 backdrop-blur rounded-2xl shadow-sm p-6 border border-yellow-200/50 mb-8 print:hidden">
-            <p className="text-yellow-900 text-sm font-medium mb-4">편집 모드</p>
-            <p className="text-yellow-700 text-sm">테이블의 항목을 수정한 후 각 행의 저장 버튼을 클릭하세요.</p>
-          </div>
-        )}
-
-        {!editMode && controlPlan.status === 'draft' && (
-          <div className="bg-blue-50/70 backdrop-blur rounded-2xl shadow-sm p-6 border border-blue-200/50 mb-8 print:hidden flex items-center justify-between">
-            <div>
-              <p className="text-blue-900 font-medium mb-1">검토 준비 완료?</p>
-              <p className="text-blue-700 text-sm">검토 요청을 통해 담당자의 검토를 요청할 수 있습니다.</p>
-            </div>
-            <button
-              onClick={() => handleStatusChange('review')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
-            >
-              검토 요청
-            </button>
-          </div>
-        )}
-
-        {!editMode && controlPlan.status === 'review' && (
-          <div className="bg-yellow-50/70 backdrop-blur rounded-2xl shadow-sm p-6 border border-yellow-200/50 mb-8 print:hidden flex items-center justify-between">
-            <div>
-              <p className="text-yellow-900 font-medium mb-1">검토 중입니다</p>
-              <p className="text-yellow-700 text-sm">승인 또는 초안으로 되돌릴 수 있습니다.</p>
-            </div>
-            <div className="flex gap-3">
+        {/* 컨트롤 버튼 */}
+        <div className="flex gap-3 mb-6 flex-wrap">
+          {canEdit && (
+            <>
               <button
-                onClick={() => handleStatusChange('draft')}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-lg text-sm font-medium transition-colors"
+                onClick={() => { if (editMode) { setEditMode(false); setEditPanelLineId(null); } else { setEditMode(true); } }}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${editMode ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
               >
-                초안으로
+                {editMode ? '편집 취소' : '편집'}
               </button>
-              <button
-                onClick={() => handleStatusChange('approved')}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                승인
-              </button>
-            </div>
-          </div>
-        )}
+              {editMode && (
+                <button onClick={handleSaveAll} disabled={saving} className="px-4 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg font-medium transition-all disabled:opacity-50">
+                  {saving ? '저장 중...' : '전체 저장'}
+                </button>
+              )}
+            </>
+          )}
 
-        {!editMode && controlPlan.status === 'approved' && (
-          <div className="bg-green-50/70 backdrop-blur rounded-2xl shadow-sm p-6 border border-green-200/50 mb-8 print:hidden flex items-center justify-between">
-            <div>
-              <p className="text-green-900 font-medium mb-1">승인 완료</p>
-              <p className="text-green-700 text-sm">이 문서를 수정하려면 아래 버튼을 클릭하세요.</p>
-            </div>
-            <button
-              onClick={() => {
-                handleStatusChange('draft');
-                setEditMode(true);
-              }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
-            >
-              수정하기
-            </button>
-          </div>
-        )}
+          {!editMode && (
+            <>
+              {controlPlan.status === 'draft' && (
+                <button onClick={() => handleStatusChange('review')} className="px-4 py-2 bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded-lg font-medium transition-all">검토 요청</button>
+              )}
+              {controlPlan.status === 'review' && (
+                <>
+                  <button onClick={() => handleStatusChange('approved')} className="px-4 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg font-medium transition-all">승인</button>
+                  <button onClick={() => handleStatusChange('draft')} className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg font-medium transition-all">초안으로</button>
+                </>
+              )}
+              {controlPlan.status === 'approved' && (
+                <button onClick={() => { handleStatusChange('draft'); setEditMode(true); }} className="px-4 py-2 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg font-medium transition-all">수정하기</button>
+              )}
+              <button onClick={handlePrint} className="px-4 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-lg font-medium transition-all flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                PDF 다운로드
+              </button>
+            </>
+          )}
+        </div>
 
         {/* Control Plan Table */}
         <div className="bg-white/70 backdrop-blur rounded-2xl shadow-sm border border-white/50 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">관리 항목</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {lines.length}개 항목
+              {editMode && <span className="ml-2 text-blue-600 font-medium">— 행을 클릭하면 편집 패널이 열립니다</span>}
+            </p>
           </div>
 
           {lines.length === 0 ? (
@@ -530,167 +541,42 @@ export default function ControlPlanViewPage({
               <table className="w-full text-sm">
                 <thead className="bg-gray-50/50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">No</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">공정</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">특성명</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700">관리유형</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">관리방법</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700">샘플크기</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700">주기</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">대응계획</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">담당</th>
-                    {editMode && (
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 print:hidden">
-                        작업
-                      </th>
-                    )}
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">No</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">공정번호</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">공정명</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">설비</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">특성명</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-700">유형</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">관리방법</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-700">샘플</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-gray-700">주기</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">조치</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">담당</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {lines.map((line, idx) => (
                     <tr
                       key={line.id}
-                      className={`hover:bg-gray-50/50 transition-colors ${
-                        line.isEditing ? 'bg-yellow-50/30' : ''
+                      onClick={() => { if (editMode) setEditPanelLineId(line.id); }}
+                      className={`transition-colors ${editMode ? 'cursor-pointer' : ''} ${
+                        editPanelLineId === line.id ? 'bg-blue-100/70' : editMode ? 'hover:bg-blue-50' : 'hover:bg-gray-50/50'
                       }`}
                     >
-                      <td className="px-4 py-3 text-gray-600 font-medium">{idx + 1}</td>
-                      <td className="px-4 py-3 text-gray-900 font-medium text-xs">
-                        {editMode && line.isEditing ? (
-                          <input
-                            type="text"
-                            value={line.process_step}
-                            onChange={(e) =>
-                              handleEditChange(line.id, 'process_step', e.target.value)
-                            }
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                          />
-                        ) : (
-                          line.process_step || '-'
-                        )}
+                      <td className="px-3 py-3 text-gray-600 font-medium">
+                        {editMode && <svg className="w-3.5 h-3.5 text-blue-400 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>}
+                        {idx + 1}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-xs">
-                          <p className="font-medium text-gray-900">
-                            {line.characteristic_name}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {editMode && line.isEditing ? (
-                          <select
-                            value={line.control_type || ''}
-                            onChange={(e) =>
-                              handleEditChange(line.id, 'control_type', e.target.value)
-                            }
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                          >
-                            <option value="">선택</option>
-                            <option value="prevention">예방</option>
-                            <option value="detection">검출</option>
-                          </select>
-                        ) : (
-                          getControlTypeBadge(line.control_type)
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {editMode && line.isEditing ? (
-                          <input
-                            type="text"
-                            value={line.control_method || ''}
-                            onChange={(e) =>
-                              handleEditChange(line.id, 'control_method', e.target.value)
-                            }
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                          />
-                        ) : (
-                          <span className="text-gray-900 text-xs">{line.control_method || '-'}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {editMode && line.isEditing ? (
-                          <input
-                            type="text"
-                            value={line.sample_size || ''}
-                            onChange={(e) =>
-                              handleEditChange(line.id, 'sample_size', e.target.value)
-                            }
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center"
-                          />
-                        ) : (
-                          <span className="text-gray-600 text-xs">{line.sample_size || '-'}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {editMode && line.isEditing ? (
-                          <input
-                            type="text"
-                            value={line.frequency || ''}
-                            onChange={(e) =>
-                              handleEditChange(line.id, 'frequency', e.target.value)
-                            }
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-center"
-                          />
-                        ) : (
-                          <span className="text-gray-600 text-xs">{line.frequency || '-'}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {editMode && line.isEditing ? (
-                          <input
-                            type="text"
-                            value={line.reaction_plan || ''}
-                            onChange={(e) =>
-                              handleEditChange(line.id, 'reaction_plan', e.target.value)
-                            }
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                          />
-                        ) : (
-                          <span className="text-gray-600 text-xs">{line.reaction_plan || '-'}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {editMode && line.isEditing ? (
-                          <input
-                            type="text"
-                            value={line.responsible || ''}
-                            onChange={(e) =>
-                              handleEditChange(line.id, 'responsible', e.target.value)
-                            }
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                          />
-                        ) : (
-                          <span className="text-gray-600 text-xs">{line.responsible || '-'}</span>
-                        )}
-                      </td>
-                      {editMode && (
-                        <td className="px-4 py-3 text-center print:hidden">
-                          {line.isEditing ? (
-                            <div className="flex gap-2 justify-center">
-                              <button
-                                onClick={() => handleSave(line.id)}
-                                disabled={saving}
-                                className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
-                              >
-                                저장
-                              </button>
-                              <button
-                                onClick={() => handleCancel(line.id)}
-                                className="px-2 py-1 bg-gray-300 hover:bg-gray-400 text-gray-900 rounded text-xs font-medium transition-colors"
-                              >
-                                취소
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => handleEditClick(line.id)}
-                              className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs font-medium transition-colors"
-                            >
-                              편집
-                            </button>
-                          )}
-                        </td>
-                      )}
+                      <td className="px-3 py-3 text-gray-500 text-xs">{line.process_number || '-'}</td>
+                      <td className="px-3 py-3 text-gray-900 font-medium text-xs">{line.process_step || '-'}</td>
+                      <td className="px-3 py-3 text-gray-600 text-xs">{line.machine_device || '-'}</td>
+                      <td className="px-3 py-3 text-xs font-medium text-gray-900">{line.characteristic_name || '-'}</td>
+                      <td className="px-3 py-3 text-center">{getControlTypeBadge(line.control_type)}</td>
+                      <td className="px-3 py-3 text-gray-900 text-xs">{line.control_method || '-'}</td>
+                      <td className="px-3 py-3 text-center text-gray-600 text-xs">{line.sample_size || '-'}</td>
+                      <td className="px-3 py-3 text-center text-gray-600 text-xs">{line.frequency || '-'}</td>
+                      <td className="px-3 py-3 text-gray-600 text-xs">{line.reaction_plan || '-'}</td>
+                      <td className="px-3 py-3 text-gray-600 text-xs">{line.responsible || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -699,6 +585,134 @@ export default function ControlPlanViewPage({
           )}
         </div>
       </main>
+
+      {/* ===== Edit Slide-Out Panel ===== */}
+      {editMode && editPanelLineId && (() => {
+        const editLine = lines.find(l => l.id === editPanelLineId);
+        if (!editLine) return null;
+        const lineIdx = lines.findIndex(l => l.id === editPanelLineId);
+        const char = getChar(editLine.characteristic_id);
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/30 z-50" onClick={() => setEditPanelLineId(null)} />
+            <div className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white z-50 shadow-2xl flex flex-col overflow-hidden">
+              {/* Panel Header */}
+              <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-between flex-shrink-0">
+                <div>
+                  <h3 className="text-lg font-bold text-white">항목 #{lineIdx + 1} 편집</h3>
+                  <p className="text-sm text-blue-100">{editLine.process_step || '공정명 미입력'}</p>
+                </div>
+                <button onClick={() => setEditPanelLineId(null)} className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              {/* Panel Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                {/* 공정 정보 */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">공정 정보</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">공정번호</label>
+                      <input type="text" value={editLine.process_number || ''} onChange={(e) => handleEditChange(editLine.id, 'process_number', e.target.value)} placeholder="예: I-10" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">공정명 / 작업설명</label>
+                      <input type="text" value={editLine.process_step} onChange={(e) => handleEditChange(editLine.id, 'process_step', e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 설비 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">설비 / 기계, 장치, 지그, 공구</label>
+                  <input type="text" value={editLine.machine_device || ''} onChange={(e) => handleEditChange(editLine.id, 'machine_device', e.target.value)} placeholder="예: 호퍼드라이어, 항온기, 온수기..." className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+
+                {/* 특성 정보 (읽기 전용) */}
+                {char && (
+                  <div className="bg-blue-50 rounded-xl p-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">특성 정보 (자동 연결)</label>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-gray-500 text-xs">특성명:</span> <span className="font-medium">{char.name}</span></div>
+                      <div><span className="text-gray-500 text-xs">유형:</span> <span className="font-medium">{char.type === 'product' ? '제품특성' : '공정특성'}</span></div>
+                      <div><span className="text-gray-500 text-xs">분류:</span> <span className="font-medium">{char.category === 'critical' ? 'CC (Critical)' : char.category === 'major' ? 'SC (Safety)' : '일반'}</span></div>
+                      <div><span className="text-gray-500 text-xs">규격:</span> <span className="font-medium">{getSpecText(editLine.characteristic_id) || '-'}</span></div>
+                      {char.measurement_method && <div className="col-span-2"><span className="text-gray-500 text-xs">측정방법:</span> <span className="font-medium">{char.measurement_method}</span></div>}
+                    </div>
+                  </div>
+                )}
+
+                {/* 특성명 (직접 수정) */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">특성명</label>
+                  <input type="text" value={editLine.characteristic_name} onChange={(e) => handleEditChange(editLine.id, 'characteristic_name', e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+
+                {/* 관리유형 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">관리유형</label>
+                  <div className="flex gap-3">
+                    {(['prevention', 'detection'] as const).map((t) => (
+                      <button key={t} onClick={() => handleEditChange(editLine.id, 'control_type', t)}
+                        className={`flex-1 py-2.5 rounded-lg font-bold text-sm border-2 transition-all ${
+                          editLine.control_type === t
+                            ? t === 'prevention' ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-purple-100 border-purple-400 text-purple-700'
+                            : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                        }`}>
+                        {t === 'prevention' ? '예방 (Prevention)' : '검출 (Detection)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 관리방법 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">관리방법 (Control Method)</label>
+                  <input type="text" value={editLine.control_method || ''} onChange={(e) => handleEditChange(editLine.id, 'control_method', e.target.value)} placeholder="예: 공정 조건 관리, SPC 관리..." className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+
+                {/* 샘플 */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">샘플 (Sample)</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">크기 (Size)</label>
+                      <input type="text" value={editLine.sample_size || ''} onChange={(e) => handleEditChange(editLine.id, 'sample_size', e.target.value)} placeholder="예: 전수, 5, 1회" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">주기 (Frequency)</label>
+                      <input type="text" value={editLine.frequency || ''} onChange={(e) => handleEditChange(editLine.id, 'frequency', e.target.value)} placeholder="예: 매 LOT, 매 시간, 전수검사" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 대응계획 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">조치 / 대응계획 (Reaction Plan)</label>
+                  <textarea value={editLine.reaction_plan || ''} onChange={(e) => handleEditChange(editLine.id, 'reaction_plan', e.target.value)} rows={2} placeholder="예: 공정 중단 후 원인 조사, 부적합품 격리..." className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+
+                {/* 책임자 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">책임자 (Owner / Responsible)</label>
+                  <input type="text" value={editLine.responsible || ''} onChange={(e) => handleEditChange(editLine.id, 'responsible', e.target.value)} placeholder="예: 작업자, 검사원, 품질팀장" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                </div>
+              </div>
+
+              {/* Panel Footer */}
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
+                <div className="flex gap-2">
+                  <button onClick={() => { if (lineIdx > 0) setEditPanelLineId(lines[lineIdx - 1].id); }} disabled={lineIdx <= 0} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">← 이전</button>
+                  <button onClick={() => { if (lineIdx < lines.length - 1) setEditPanelLineId(lines[lineIdx + 1].id); }} disabled={lineIdx >= lines.length - 1} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">다음 →</button>
+                </div>
+                <button onClick={() => setEditPanelLineId(null)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all">완료</button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ===== Print Layout - 관리계획서 표준양식 (AIAG APQP) ===== */}
       <div className="cp-print hidden">
@@ -791,12 +805,11 @@ export default function ControlPlanViewPage({
           <tbody>
             {lines.map((line, idx) => {
               const char = getChar(line.characteristic_id);
-              const processNo = `I-${(idx + 1) * 10}`;
               return (
                 <tr key={line.id}>
-                  <td className="c">{processNo}</td>
+                  <td className="c">{line.process_number || `I-${(idx + 1) * 10}`}</td>
                   <td>{line.process_step}</td>
-                  <td></td>
+                  <td>{line.machine_device || ''}</td>
                   <td className="c">{idx + 1}</td>
                   <td>{char?.type === 'product' ? (char.name || line.characteristic_name) : ''}</td>
                   <td>{char?.type === 'process' ? (char.name || line.characteristic_name) : (!char ? line.characteristic_name : '')}</td>
