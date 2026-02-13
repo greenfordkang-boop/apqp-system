@@ -46,6 +46,7 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
   const [newLine, setNewLine] = useState<NewLineInput>({ ...emptyNewLine });
   const [aiReviewing, setAiReviewing] = useState(false);
   const [aiReviewingLineId, setAiReviewingLineId] = useState<string | null>(null);
+  const [editPanelLineId, setEditPanelLineId] = useState<string | null>(null);
 
   // AI 전체 리뷰 패널
   const [isFullReviewing, setIsFullReviewing] = useState(false);
@@ -89,6 +90,7 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
     if (isEditMode) {
       setIsEditMode(false);
       setEditingLines(new Map());
+      setEditPanelLineId(null);
     } else {
       if (pfmea?.status === 'approved') return;
       setIsEditMode(true);
@@ -133,6 +135,7 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
       await fetchPfmea();
       setIsEditMode(false);
       setEditingLines(new Map());
+      setEditPanelLineId(null);
     } catch (err) {
       console.error('Error saving changes:', err);
     }
@@ -141,6 +144,7 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
   const handleCancel = () => {
     setIsEditMode(false);
     setEditingLines(new Map());
+    setEditPanelLineId(null);
   };
 
   // ========== 항목 삭제 ==========
@@ -804,7 +808,10 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
         <div className="bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200/50">
             <h2 className="text-lg font-semibold text-gray-900">PFMEA 분석 항목</h2>
-            <p className="text-sm text-gray-500 mt-1">{lines.length}개의 분석 항목</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {lines.length}개의 분석 항목
+              {isEditMode && <span className="ml-2 text-blue-600 font-medium">— 행을 클릭하면 편집 패널이 열립니다</span>}
+            </p>
           </div>
 
           {lines.length === 0 ? (
@@ -855,23 +862,33 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
                     return (
                       <tr
                         key={line.id}
+                        onClick={() => { if (isEditMode) setEditPanelLineId(line.id); }}
                         className={`transition-colors ${
+                          isEditMode ? 'cursor-pointer' : ''
+                        } ${
                           isReviewing
                             ? 'bg-purple-50 animate-pulse'
+                            : editPanelLineId === line.id
+                            ? 'bg-blue-100/70'
                             : isUnreviewed
                             ? 'bg-yellow-50/50'
+                            : isEditMode
+                            ? 'hover:bg-blue-50'
                             : 'hover:bg-blue-50/50'
                         }`}
                       >
-                        <td className="px-3 py-3 text-gray-700 font-medium">{idx + 1}</td>
+                        <td className="px-3 py-3 text-gray-700 font-medium">
+                          {isEditMode && (
+                            <svg className="w-3.5 h-3.5 text-blue-400 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                          )}
+                          {idx + 1}
+                        </td>
 
                         {/* 공정 */}
                         <td className="px-3 py-3">
-                          {isEditMode ? (
-                            <input type="text" value={displayLine.process_step} onChange={(e) => handleEditingChange(line.id, 'process_step', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded font-medium text-sm" />
-                          ) : (
-                            <span className="font-medium text-gray-900">{displayLine.process_step}</span>
-                          )}
+                          <span className="font-medium text-gray-900">{displayLine.process_step}</span>
                         </td>
 
                         {/* 특성명 */}
@@ -881,74 +898,42 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
 
                         {/* 잠재고장모드 */}
                         <td className="px-3 py-3">
-                          {isEditMode ? (
-                            <textarea value={displayLine.potential_failure_mode} onChange={(e) => handleEditingChange(line.id, 'potential_failure_mode', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" rows={2} />
-                          ) : (
-                            <span className="text-red-700 font-medium text-xs">{displayLine.potential_failure_mode}</span>
-                          )}
+                          <span className="text-red-700 font-medium text-xs">{displayLine.potential_failure_mode}</span>
                         </td>
 
                         {/* 잠재영향 */}
                         <td className="px-3 py-3">
-                          {isEditMode ? (
-                            <textarea value={displayLine.potential_effect} onChange={(e) => handleEditingChange(line.id, 'potential_effect', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" rows={2} />
-                          ) : (
-                            <span className="text-gray-700 text-xs">{displayLine.potential_effect || '-'}</span>
-                          )}
+                          <span className="text-gray-700 text-xs">{displayLine.potential_effect || '-'}</span>
                         </td>
 
                         {/* S */}
                         <td className="px-3 py-3 text-center">
-                          {isEditMode ? (
-                            <input type="number" min="1" max="10" value={displayLine.severity} onChange={(e) => handleEditingChange(line.id, 'severity', e.target.value)} className="w-12 px-1 py-1 border border-gray-300 rounded text-center font-semibold text-sm" />
-                          ) : (
-                            <span className={`font-semibold ${displayLine.severity >= 8 ? 'text-red-600' : 'text-gray-900'}`}>{displayLine.severity}</span>
-                          )}
+                          <span className={`font-semibold ${displayLine.severity >= 8 ? 'text-red-600' : 'text-gray-900'}`}>{displayLine.severity}</span>
                         </td>
 
                         {/* 원인 */}
                         <td className="px-3 py-3">
-                          {isEditMode ? (
-                            <textarea value={displayLine.potential_cause} onChange={(e) => handleEditingChange(line.id, 'potential_cause', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" rows={2} />
-                          ) : (
-                            <span className="text-gray-700 text-xs">{displayLine.potential_cause || '-'}</span>
-                          )}
+                          <span className="text-gray-700 text-xs">{displayLine.potential_cause || '-'}</span>
                         </td>
 
                         {/* O */}
                         <td className="px-3 py-3 text-center">
-                          {isEditMode ? (
-                            <input type="number" min="1" max="10" value={displayLine.occurrence} onChange={(e) => handleEditingChange(line.id, 'occurrence', e.target.value)} className="w-12 px-1 py-1 border border-gray-300 rounded text-center font-semibold text-sm" />
-                          ) : (
-                            <span className="font-semibold text-gray-900">{displayLine.occurrence}</span>
-                          )}
+                          <span className="font-semibold text-gray-900">{displayLine.occurrence}</span>
                         </td>
 
                         {/* 예방관리 */}
                         <td className="px-3 py-3 text-xs">
-                          {isEditMode ? (
-                            <input type="text" value={displayLine.current_control_prevention || ''} onChange={(e) => handleEditingChange(line.id, 'current_control_prevention', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" />
-                          ) : (
-                            <span className="text-gray-700">{displayLine.current_control_prevention || '-'}</span>
-                          )}
+                          <span className="text-gray-700">{displayLine.current_control_prevention || '-'}</span>
                         </td>
 
                         {/* 검출관리 */}
                         <td className="px-3 py-3 text-xs">
-                          {isEditMode ? (
-                            <input type="text" value={displayLine.current_control_detection || ''} onChange={(e) => handleEditingChange(line.id, 'current_control_detection', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" />
-                          ) : (
-                            <span className="text-gray-700">{displayLine.current_control_detection || '-'}</span>
-                          )}
+                          <span className="text-gray-700">{displayLine.current_control_detection || '-'}</span>
                         </td>
 
                         {/* D */}
                         <td className="px-3 py-3 text-center">
-                          {isEditMode ? (
-                            <input type="number" min="1" max="10" value={displayLine.detection} onChange={(e) => handleEditingChange(line.id, 'detection', e.target.value)} className="w-12 px-1 py-1 border border-gray-300 rounded text-center font-semibold text-sm" />
-                          ) : (
-                            <span className="font-semibold text-gray-900">{displayLine.detection}</span>
-                          )}
+                          <span className="font-semibold text-gray-900">{displayLine.detection}</span>
                         </td>
 
                         {/* RPN */}
@@ -956,23 +941,12 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
 
                         {/* AP */}
                         <td className="px-3 py-3 text-center">
-                          {isEditMode ? (
-                            <select value={displayLine.action_priority || ''} onChange={(e) => handleEditingChange(line.id, 'action_priority', e.target.value)} className="w-14 px-1 py-1 border border-gray-300 rounded text-center text-xs">
-                              <option value="">-</option>
-                              <option value="H">H</option>
-                              <option value="M">M</option>
-                              <option value="L">L</option>
-                            </select>
-                          ) : getPriorityBadge(displayLine.action_priority)}
+                          {getPriorityBadge(displayLine.action_priority)}
                         </td>
 
                         {/* 권장조치 */}
                         <td className="px-3 py-3 text-xs">
-                          {isEditMode ? (
-                            <textarea value={displayLine.recommended_action || ''} onChange={(e) => handleEditingChange(line.id, 'recommended_action', e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-xs" rows={2} />
-                          ) : (
-                            <span className="text-gray-700">{displayLine.recommended_action || '-'}</span>
-                          )}
+                          <span className="text-gray-700">{displayLine.recommended_action || '-'}</span>
                         </td>
 
                         {/* 액션 버튼 */}
@@ -997,6 +971,9 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
                                 삭제
                               </button>
                             )}
+                            {isEditMode && (
+                              <span className="text-xs text-blue-500 font-medium">편집</span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1013,6 +990,208 @@ export default function PfmeaViewPage({ params }: { params: Promise<{ id: string
           <p>최종 업데이트: {new Date(pfmea.updated_at).toLocaleString('ko-KR')}</p>
         </div>
       </main>
+
+      {/* ===== Edit Slide-Out Panel ===== */}
+      {isEditMode && editPanelLineId && (() => {
+        const editLine = editingLines.get(editPanelLineId);
+        if (!editLine) return null;
+        const lineIdx = lines.findIndex(l => l.id === editPanelLineId);
+        return (
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/30 z-50" onClick={() => setEditPanelLineId(null)} />
+            {/* Panel */}
+            <div className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white z-50 shadow-2xl flex flex-col overflow-hidden">
+              {/* Panel Header */}
+              <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-between flex-shrink-0">
+                <div>
+                  <h3 className="text-lg font-bold text-white">항목 #{lineIdx + 1} 편집</h3>
+                  <p className="text-sm text-blue-100">{editLine.process_step || '공정명 미입력'}</p>
+                </div>
+                <button onClick={() => setEditPanelLineId(null)} className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Panel Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                {/* 공정 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">공정단계</label>
+                  <input
+                    type="text"
+                    value={editLine.process_step}
+                    onChange={(e) => handleEditingChange(editPanelLineId, 'process_step', e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+
+                {/* 잠재고장모드 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">잠재고장모드</label>
+                  <textarea
+                    value={editLine.potential_failure_mode}
+                    onChange={(e) => handleEditingChange(editPanelLineId, 'potential_failure_mode', e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+
+                {/* 잠재영향 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">잠재영향</label>
+                  <textarea
+                    value={editLine.potential_effect}
+                    onChange={(e) => handleEditingChange(editPanelLineId, 'potential_effect', e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+
+                {/* S / O / D 그룹 */}
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">위험도 평가 (S × O × D = RPN)</label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">심각도 (S)</label>
+                      <input
+                        type="number" min={1} max={10}
+                        value={editLine.severity}
+                        onChange={(e) => handleEditingChange(editPanelLineId, 'severity', e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-center font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">발생도 (O)</label>
+                      <input
+                        type="number" min={1} max={10}
+                        value={editLine.occurrence}
+                        onChange={(e) => handleEditingChange(editPanelLineId, 'occurrence', e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-center font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">검출도 (D)</label>
+                      <input
+                        type="number" min={1} max={10}
+                        value={editLine.detection}
+                        onChange={(e) => handleEditingChange(editPanelLineId, 'detection', e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-center font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3 text-center">
+                    <span className={`text-2xl font-bold ${getRpnColor(editLine.severity * editLine.occurrence * editLine.detection)}`}>
+                      RPN = {editLine.severity * editLine.occurrence * editLine.detection}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 원인 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">잠재원인</label>
+                  <textarea
+                    value={editLine.potential_cause}
+                    onChange={(e) => handleEditingChange(editPanelLineId, 'potential_cause', e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+
+                {/* 예방/검출 관리 */}
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">예방관리</label>
+                    <input
+                      type="text"
+                      value={editLine.current_control_prevention || ''}
+                      onChange={(e) => handleEditingChange(editPanelLineId, 'current_control_prevention', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="예방 관리 방법을 입력하세요"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">검출관리</label>
+                    <input
+                      type="text"
+                      value={editLine.current_control_detection || ''}
+                      onChange={(e) => handleEditingChange(editPanelLineId, 'current_control_detection', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="검출 관리 방법을 입력하세요"
+                    />
+                  </div>
+                </div>
+
+                {/* AP */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">조치 우선순위 (AP)</label>
+                  <div className="flex gap-3">
+                    {(['H', 'M', 'L'] as const).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => handleEditingChange(editPanelLineId, 'action_priority', editLine.action_priority === p ? '' : p)}
+                        className={`flex-1 py-2.5 rounded-lg font-bold text-sm border-2 transition-all ${
+                          editLine.action_priority === p
+                            ? p === 'H' ? 'bg-red-100 border-red-400 text-red-700'
+                              : p === 'M' ? 'bg-orange-100 border-orange-400 text-orange-700'
+                              : 'bg-green-100 border-green-400 text-green-700'
+                            : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                        }`}
+                      >
+                        {p === 'H' ? 'H (높음)' : p === 'M' ? 'M (중간)' : 'L (낮음)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 권장조치 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">권장조치</label>
+                  <textarea
+                    value={editLine.recommended_action || ''}
+                    onChange={(e) => handleEditingChange(editPanelLineId, 'recommended_action', e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="권장 개선 조치를 입력하세요"
+                  />
+                </div>
+              </div>
+
+              {/* Panel Footer - Navigation */}
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (lineIdx > 0) setEditPanelLineId(lines[lineIdx - 1].id);
+                    }}
+                    disabled={lineIdx <= 0}
+                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    ← 이전
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (lineIdx < lines.length - 1) setEditPanelLineId(lines[lineIdx + 1].id);
+                    }}
+                    disabled={lineIdx >= lines.length - 1}
+                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    다음 →
+                  </button>
+                </div>
+                <button
+                  onClick={() => setEditPanelLineId(null)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all"
+                >
+                  완료
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ===== Print Layout - AIAG & VDA FMEA Format ===== */}
       <div className="pfmea-print hidden">
