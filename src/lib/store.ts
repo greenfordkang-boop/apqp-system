@@ -2,6 +2,32 @@
 // 모든 메서드가 async → Promise 반환
 
 import { supabase } from './supabase';
+import type {
+  Product,
+  Characteristic,
+  PfmeaHeader,
+  PfmeaLine,
+  ControlPlan,
+  ControlPlanItem,
+  Sop,
+  SopStep,
+  InspectionStandard,
+  InspectionItem,
+} from '@/types/database';
+
+// Re-export types for backward compatibility (pages import from '@/lib/store')
+export type {
+  Product,
+  Characteristic,
+  PfmeaHeader,
+  PfmeaLine,
+  ControlPlan,
+  ControlPlanItem,
+  Sop,
+  SopStep,
+  InspectionStandard,
+  InspectionItem,
+};
 
 // ============ AP 계산 (AIAG & VDA FMEA Handbook 2019) ============
 
@@ -69,161 +95,6 @@ export function calcAP(s: number, o: number, d: number): 'H' | 'M' | 'L' {
   }
   // O = 1
   return 'L';
-}
-
-// ============ 타입 정의 ============
-
-export interface Product {
-  id: string;
-  name: string;
-  code: string;
-  customer: string;
-  vehicle_model: string;
-  part_number: string;
-  description: string;
-  status: 'active' | 'inactive';
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Characteristic {
-  id: string;
-  product_id: string;
-  name: string;
-  type: 'product' | 'process';
-  category: 'critical' | 'major' | 'minor';
-  specification: string;
-  lsl: number | null;
-  usl: number | null;
-  unit: string;
-  measurement_method: string;
-  process_name: string;
-  created_at: string;
-}
-
-export interface PfmeaHeader {
-  id: string;
-  product_id: string;
-  process_name: string;
-  doc_number: string;
-  author: string;
-  revision: number;
-  status: 'draft' | 'review' | 'approved';
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PfmeaLine {
-  id: string;
-  pfmea_id: string;
-  step_no: number;
-  characteristic_id: string;
-  process_step: string;
-  potential_failure_mode: string;
-  potential_effect: string;
-  severity: number;
-  potential_cause: string;
-  occurrence: number;
-  current_control_prevention: string;
-  current_control_detection: string;
-  detection: number;
-  rpn: number;
-  action_priority: 'H' | 'M' | 'L';
-  recommended_action: string;
-  created_at: string;
-}
-
-export interface ControlPlan {
-  id: string;
-  pfmea_id: string;
-  product_id: string;
-  name: string;
-  doc_number: string;
-  author: string;
-  revision: number;
-  status: 'draft' | 'review' | 'approved';
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ControlPlanItem {
-  id: string;
-  control_plan_id: string;
-  pfmea_line_id: string;
-  characteristic_id: string;
-  process_number: string;
-  process_step: string;
-  machine_device: string;
-  characteristic_name: string;
-  control_type: 'prevention' | 'detection';
-  control_method: string;
-  sample_size: string;
-  frequency: string;
-  reaction_plan: string;
-  responsible: string;
-  created_at: string;
-}
-
-export interface Sop {
-  id: string;
-  control_plan_id: string;
-  product_id: string;
-  name: string;
-  doc_number: string;
-  author: string;
-  revision: number;
-  status: 'draft' | 'review' | 'approved';
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SopStep {
-  id: string;
-  sop_id: string;
-  linked_cp_item_id: string;
-  step_no: number;
-  process_step: string;
-  action: string;
-  key_point: string;
-  safety_note: string;
-  quality_point: string;
-  tools_equipment: string;
-  estimated_time_sec: number;
-  created_at: string;
-}
-
-export interface InspectionStandard {
-  id: string;
-  control_plan_id: string;
-  product_id: string;
-  name: string;
-  doc_number: string;
-  author: string;
-  revision: number;
-  status: 'draft' | 'review' | 'approved';
-  created_at: string;
-  updated_at: string;
-}
-
-export interface InspectionItem {
-  id: string;
-  inspection_standard_id: string;
-  linked_cp_item_id: string;
-  characteristic_id: string;
-  item_no: number;
-  inspection_item_name: string;
-  specification: string;
-  lsl: number | null;
-  usl: number | null;
-  unit: string;
-  inspection_method: string;
-  measurement_tool: string;
-  sample_size: string;
-  frequency: string;
-  acceptance_criteria: string;
-  ng_handling: string;
-  inspection_type: 'incoming' | 'in-process' | 'final' | 'outgoing';
-  created_at: string;
 }
 
 // ============ 제품 (Products) ============

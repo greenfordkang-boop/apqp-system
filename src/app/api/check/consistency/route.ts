@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
       .eq('pfmea_id', targetPfmeaId);
 
     if (pfmeaError) throw new Error(`PFMEA query error: ${pfmeaError.message}`);
+    if (!pfmeaLines) throw new Error('PFMEA lines data is null');
 
     // 3-2. Control Plans & Items
     const { data: controlPlans } = await supabase

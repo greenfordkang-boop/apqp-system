@@ -228,10 +228,13 @@ export async function POST(request: NextRequest) {
         sop_id: sopId,
         linked_cp_item_id: cpItem.id,  // ⭕ FK 연결 필수!
         step_no: i + 1,
+        process_step: cpItem.process_step,
         action: stepData.action,
         key_point: stepData.key_point,
-        safety_note: stepData.safety_note,
-        estimated_time_sec: stepData.estimated_time_sec,
+        safety_note: stepData.safety_note || '',
+        quality_point: `${characteristic.category === 'critical' ? '★ 중요특성 - ' : ''}${cpItem.control_method}으로 확인`,
+        tools_equipment: characteristic.measurement_method || '측정기기',
+        estimated_time_sec: stepData.estimated_time_sec ?? 120,
       });
 
       linkedCpItems.push(cpItem.id);
@@ -299,9 +302,12 @@ export async function GET(request: NextRequest) {
         id,
         linked_cp_item_id,
         step_no,
+        process_step,
         action,
         key_point,
         safety_note,
+        quality_point,
+        tools_equipment,
         estimated_time_sec
       )
     `)

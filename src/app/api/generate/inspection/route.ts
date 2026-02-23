@@ -245,10 +245,16 @@ export async function POST(request: NextRequest) {
         item_no: i + 1,
         inspection_item_name: itemData.inspection_item_name,
         inspection_method: itemData.inspection_method,
-        sampling_plan: samplingPlan,          // CP 값 그대로 반영
+        specification: characteristic.specification || '',
+        lsl: characteristic.lsl ?? null,
+        usl: characteristic.usl ?? null,
+        unit: characteristic.unit || '',
+        sample_size: cpItem.sample_size,
+        frequency: cpItem.frequency,
         acceptance_criteria: itemData.acceptance_criteria,
-        measurement_equipment: characteristic.measurement_method,
+        measurement_tool: characteristic.measurement_method,
         ng_handling: itemData.ng_handling,
+        inspection_type: 'in-process' as const,
       });
 
       linkedCpItems.push(cpItem.id);
@@ -320,10 +326,16 @@ export async function GET(request: NextRequest) {
         item_no,
         inspection_item_name,
         inspection_method,
-        sampling_plan,
+        specification,
+        lsl,
+        usl,
+        unit,
+        sample_size,
+        frequency,
         acceptance_criteria,
-        measurement_equipment,
-        ng_handling
+        measurement_tool,
+        ng_handling,
+        inspection_type
       )
     `)
     .eq('control_plan_id', controlPlanId)

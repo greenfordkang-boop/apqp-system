@@ -232,7 +232,7 @@ export function checkRule5(
   const actionKeywords = ['이상', '조치', '불량', '대응', '정지', '보고'];
 
   for (const step of sopSteps) {
-    const keyPointLower = step.key_point.toLowerCase();
+    const keyPointLower = (step.key_point || '').toLowerCase();
 
     const hasControlKeyword = controlKeywords.some(k => keyPointLower.includes(k));
     const hasActionKeyword = actionKeywords.some(k => keyPointLower.includes(k));

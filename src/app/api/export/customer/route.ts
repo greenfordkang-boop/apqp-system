@@ -77,7 +77,7 @@ const DEFAULT_INS_MAPPING: Record<string, string> = {
   inspection_method: 'Inspection Method',
   sampling_plan: 'Sampling Plan',
   acceptance_criteria: 'Acceptance Criteria',
-  measurement_equipment: 'Equipment',
+  measurement_tool: 'Equipment',
   ng_handling: 'NG Handling',
 };
 
@@ -320,7 +320,7 @@ async function exportInspection(
     if (columnMapping.inspection_method) row[columnMapping.inspection_method] = item.inspection_method;
     if (columnMapping.sampling_plan) row[columnMapping.sampling_plan] = item.sampling_plan;
     if (columnMapping.acceptance_criteria) row[columnMapping.acceptance_criteria] = item.acceptance_criteria;
-    if (columnMapping.measurement_equipment) row[columnMapping.measurement_equipment] = item.measurement_equipment || '';
+    if (columnMapping.measurement_tool) row[columnMapping.measurement_tool] = item.measurement_tool || '';
     if (columnMapping.ng_handling) row[columnMapping.ng_handling] = item.ng_handling;
 
     return row;

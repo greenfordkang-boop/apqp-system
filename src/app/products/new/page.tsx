@@ -126,7 +126,8 @@ export default function NewProductPage() {
       router.push('/products');
     } catch (err) {
       console.error('Error creating product:', err);
-      setError('제품 등록 중 오류가 발생했습니다.');
+      const msg = err instanceof Error ? err.message : '알 수 없는 오류';
+      setError(`제품 등록 중 오류가 발생했습니다: ${msg}`);
     } finally {
       setLoading(false);
     }

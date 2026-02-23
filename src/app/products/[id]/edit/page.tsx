@@ -40,11 +40,12 @@ export default function EditProductPage({ params }: PageProps) {
   });
 
   useEffect(() => {
+    if (!id) return;
     const load = async () => {
       await loadData();
     };
     load();
-  }, []);
+  }, [id]);
 
   async function loadData() {
     const prod = await productStore.getById(id);
